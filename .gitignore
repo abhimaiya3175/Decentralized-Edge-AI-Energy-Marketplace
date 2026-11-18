@@ -1,0 +1,11 @@
+# Secrets and local runtime state
+**/.env
+**/.env.local
+**/node_modules/
+**/artifacts/
+**/cache/
+
+# Generated model artefacts and local Python state
+**/*.pkl
+**/__pycache__/
+**/*.pyc
