@@ -3,804 +3,1368 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EnergyChain – Dashboard</title>
+  <title>EnergyChain — Operations Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/ethers@6.13.1/dist/ethers.umd.min.js"></script>
   <script src="/vendor/chart.js/chart.umd.js"></script>
   <style>
-    .energy-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); }
-    .solar-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%); }
-    .wind-gradient { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%); }
-    .battery-gradient { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); }
-    
-    .gradient-text { 
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      -webkit-background-clip: text; 
-      -webkit-text-fill-color: transparent; 
-      background-clip: text; 
+    :root {
+      /* Core Canvas & Surfaces (GitHub Dark Precision) */
+      --bg-canvas:        #0D1117;
+      --bg-subtle:        #090C10;
+      --bg-surface:       #161B22;
+      --bg-surface-hover: #1F2630;
+      --bg-input:         #0D1117;
+
+      /* Hairline Borders */
+      --border-default:   #30363D;
+      --border-muted:     #21262D;
+      --border-active:    #8B949E;
+
+      /* Typography */
+      --text-primary:     #F0F6FC;
+      --text-secondary:   #8B949E;
+      --text-muted:       #6E7681;
+
+      /* Brand & Semantic Accents */
+      --accent-primary:       #238636;
+      --accent-primary-hover: #2EA043;
+      --accent-primary-soft:  rgba(46, 160, 67, 0.14);
+      --accent-primary-text:  #3FB950;
+
+      --accent-web3:          #F6851B;
+      --accent-web3-soft:     rgba(246, 133, 27, 0.14);
+      --accent-web3-text:     #F6A44B;
+
+      --accent-wind:          #58A6FF;
+      --accent-wind-soft:     rgba(88, 166, 255, 0.14);
+
+      --accent-battery:       #A371F7;
+      --accent-battery-soft:  rgba(163, 113, 247, 0.14);
+
+      --accent-danger:        #F85149;
+      --accent-danger-soft:   rgba(248, 81, 73, 0.14);
+
+      --accent-warning:       #D29922;
+      --accent-warning-soft:  rgba(210, 153, 34, 0.14);
+
+      /* Focus Ring */
+      --focus-ring: 0 0 0 3px rgba(88, 166, 255, 0.3);
     }
-    .solar-text { 
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      -webkit-background-clip: text; 
-      -webkit-text-fill-color: transparent; 
-      background-clip: text; 
+
+    * {
+      box-sizing: border-box;
     }
-    .wind-text { 
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      -webkit-background-clip: text; 
-      -webkit-text-fill-color: transparent; 
-      background-clip: text; 
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
     }
-    
-    .btn-g { transition: all .3s; position: relative; overflow: hidden; }
-    .btn-glow::before { 
-      content: ''; 
-      position: absolute; 
-      top: 0; 
-      left: -100%; 
-      width: 100%; 
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent); 
-      transition: left .5s; 
+
+    .font-mono, code, .metric-value, .eth-price, .wallet-address, .table-id {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
     }
-    .btn-glow:hover::before { left: 100%; }
-    .btn-glow:hover { box-shadow: 0 0 30px rgba(16,185,129,.6); transform: translateY(-2px); }
-    .btn-solar-glow:hover { box-shadow: 0 0 30px rgba(245,158,11,.6); }
-    
+
+    /* Focus accessibility */
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
     button:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
       pointer-events: none !important;
     }
-    button:disabled::before, button:disabled:hover::before { display: none !important; }
-    button:disabled:hover { box-shadow: none !important; transform: none !important; }
-    
-    .toast { 
-      position: fixed; 
-      bottom: 20px; 
-      right: 20px; 
-      padding: 12px 24px; 
-      border-radius: 8px; 
-      color: white; 
-      z-index: 1000; 
-      opacity: 0; 
-      transition: opacity 0.3s; 
+
+    /* Layout Shell */
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      background: var(--bg-canvas);
     }
-    .toast.show { opacity: 1; }
-    .toast-success { background: #10b981; }
-    .toast-error { background: #ef4444; }
-    .toast-warning { background: #f59e0b; }
-    .invalid { border-color: #ef4444 !important; }
-    
-    .prediction-card {
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-      border: 2px solid #f59e0b;
+
+    /* Fixed Left Sidebar (240px) */
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg-subtle);
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 40;
+      transition: transform 0.2s ease-in-out;
     }
-    
-    .stat-card {
-      background: white;
-      border-radius: 12px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      transition: all 0.3s;
+
+    .sidebar-header {
+      height: 60px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-muted);
     }
-    .stat-card:hover {
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-      transform: translateY(-2px);
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 16px 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    
-    .module-card {
-      background: white;
-      border-radius: 16px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.07);
-      border: 1px solid #e5e7eb;
-      transition: all 0.3s;
-    }
-    .module-card:hover {
-      box-shadow: 0 12px 24px rgba(0,0,0,0.12);
-    }
-    
-    .tab-btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
+
+    .nav-group-title {
+      font-size: 11px;
       font-weight: 600;
-      transition: all 0.3s;
-      border: 2px solid transparent;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 8px 4px 8px;
     }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid transparent;
+      text-align: left;
+      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+      cursor: pointer;
+    }
+
+    .tab-btn:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
     .tab-btn.active {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: white;
-      border-color: #059669;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+      font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--accent-primary-text);
     }
-    .tab-btn:not(.active) {
-      background: #f3f4f6;
-      color: #6b7280;
+
+    .tab-btn svg {
+      width: 16px;
+      height: 16px;
+      margin-right: 10px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      transition: color 150ms ease;
     }
-    .tab-btn:not(.active):hover {
-      background: #e5e7eb;
-      color: #374151;
+
+    .tab-btn.active svg {
+      color: var(--accent-primary-text);
     }
-    
+
+    .tab-btn:hover svg {
+      color: var(--text-primary);
+    }
+
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border-muted);
+      background: var(--bg-subtle);
+    }
+
+    .user-profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Main Viewport Wrap */
+    .main-wrap {
+      flex: 1;
+      margin-left: 240px;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Sticky Top Header (60px) */
+    .top-header {
+      height: 60px;
+      background: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-default);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    .page-body {
+      flex: 1;
+      padding: 24px;
+      max-width: 1360px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Mobile Drawer */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 35;
+    }
+
+    @media (max-width: 1023px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .sidebar-backdrop.open {
+        display: block;
+      }
+      .main-wrap {
+        margin-left: 0;
+      }
+      .page-body {
+        padding: 16px;
+      }
+    }
+
+    /* Cards & Containers (Precision 8px) */
+    .module-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      padding: 20px;
+      color: var(--text-primary);
+      transition: border-color 150ms ease;
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      padding: 16px 18px;
+      color: var(--text-primary);
+      transition: border-color 150ms ease;
+    }
+
+    .stat-card:hover, .module-card:hover {
+      border-color: var(--border-active);
+    }
+
+    /* Buttons (Primer Style, 6px radius) */
+    .btn-primary {
+      height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      background: var(--accent-primary);
+      color: #ffffff;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 150ms ease;
+    }
+    .btn-primary:hover {
+      background: var(--accent-primary-hover);
+    }
+
+    .btn-wallet {
+      height: 34px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      background: var(--accent-web3);
+      color: #0D1117;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+    }
+    .btn-wallet:hover {
+      background: #e07412;
+    }
+    .btn-wallet.is-connected {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+    .btn-wallet.is-connected:hover {
+      border-color: var(--border-active);
+      background: var(--bg-surface-hover);
+    }
+
+    .btn-secondary {
+      height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      background: #21262D;
+      color: #C9D1D9;
+      border: 1px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+    .btn-secondary:hover {
+      background: #30363D;
+      border-color: var(--border-active);
+      color: var(--text-primary);
+    }
+
+    .btn-danger-ghost {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--accent-danger);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      transition: background-color 150ms ease, color 150ms ease;
+    }
+    .btn-danger-ghost:hover {
+      background: var(--accent-danger);
+      color: #FFFFFF;
+    }
+
+    .table-action {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+    .table-action--accept {
+      background: var(--accent-primary);
+      color: #FFFFFF;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+    }
+    .table-action--accept:hover {
+      background: var(--accent-primary-hover);
+    }
+    .table-action--cancel {
+      background: transparent;
+      color: var(--accent-danger);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+    }
+    .table-action--cancel:hover {
+      background: var(--accent-danger);
+      color: #FFFFFF;
+    }
+    .table-action--confirm {
+      background: var(--accent-primary);
+      color: #FFFFFF;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+    }
+    .table-action--confirm:hover {
+      background: var(--accent-primary-hover);
+    }
+    .table-action--message {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+    .table-action--message:hover {
+      border-color: var(--border-active);
+    }
+
+    /* Form Inputs */
+    input:not([type="checkbox"]), select, textarea {
+      height: 36px;
+      padding: 0 10px;
+      font-size: 13px;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+      font-family: inherit;
+    }
+    input:not([type="checkbox"]):focus, select:focus, textarea:focus {
+      border-color: #58A6FF;
+      box-shadow: var(--focus-ring);
+      outline: none;
+    }
+    .invalid {
+      border-color: var(--accent-danger) !important;
+      box-shadow: 0 0 0 3px rgba(248, 81, 73, 0.2) !important;
+    }
+
+    /* Progress Meters (Precision 4px) */
     .energy-meter {
-      position: relative;
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 4px;
+      height: 4px;
+      background: var(--border-muted);
+      border-radius: 2px;
       overflow: hidden;
     }
     .energy-meter-fill {
       height: 100%;
+      border-radius: 2px;
       transition: width 0.5s ease;
-      border-radius: 4px;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    @media (max-width: 640px) {
-      .table-container { overflow-x: auto; }
-      canvas { max-width: 100%; }
-      .stat-card { padding: 1rem; }
-      .module-card { padding: 1rem; }
-      .tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; }
     }
 
-    /* Enterprise dashboard design-system refinements. */
-    :root {
-      --ec-ink: #17211d;
-      --ec-muted: #637067;
-      --ec-page: #f6f8f6;
-      --ec-surface: #ffffff;
-      --ec-border: #dfe7e1;
-      --ec-primary: #047857;
-      --ec-primary-strong: #065f46;
-      --ec-primary-soft: #ecfdf5;
-      --ec-amber: #b45309;
-      --ec-blue: #2563eb;
-      --ec-danger: #b91c1c;
-      --ec-shadow: 0 10px 28px rgba(15, 46, 31, 0.08);
-      --ec-radius: 14px;
+    /* Tables (GitHub Primer Ledger) */
+    .table-shell {
+      overflow-x: auto;
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: var(--bg-surface);
     }
-    body { background: var(--ec-page); color: var(--ec-ink); }
-    button, input, select { font: inherit; }
-    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
-      outline: 3px solid rgba(16, 185, 129, .38); outline-offset: 2px;
+    .data-table {
+      width: 100%;
+      min-width: 660px;
+      border-collapse: collapse;
+      font-size: 13px;
     }
-    .dashboard-nav { border-bottom: 1px solid var(--ec-border); box-shadow: 0 1px 0 rgba(15, 46, 31, .04); }
-    .brand-lockup { min-width: 0; }
-    .brand-subtitle { color: var(--ec-muted); font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-    .dashboard-heading { gap: 1rem; align-items: flex-end; }
-    .dashboard-eyebrow { color: var(--ec-primary); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-    .dashboard-heading h1 { color: var(--ec-ink); letter-spacing: -.03em; }
-    .workspace-status, .wallet-status, .data-label {
-      display: inline-flex; align-items: center; gap: .45rem; border: 1px solid var(--ec-border);
-      background: var(--ec-surface); color: var(--ec-muted); border-radius: 999px; padding: .45rem .7rem;
-      font-size: .75rem; font-weight: 700;
+    .data-table th {
+      background: #161B22;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-default);
+      white-space: nowrap;
     }
-    .status-dot { width: .5rem; height: .5rem; background: #f59e0b; border-radius: 999px; }
-    .wallet-status.is-connected { color: var(--ec-primary-strong); background: var(--ec-primary-soft); border-color: #a7f3d0; }
-    .wallet-status.is-connected .status-dot { background: #10b981; }
-    .wallet-card { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; text-align: left; }
-    .wallet-card__copy { min-width: 0; }
-    .wallet-card__title { color: var(--ec-ink); font-weight: 700; }
-    .wallet-card__hint { color: var(--ec-muted); font-size: .875rem; margin-top: .2rem; }
-    .module-card { border-color: var(--ec-border); box-shadow: var(--ec-shadow); border-radius: var(--ec-radius); transition: box-shadow .2s ease, transform .2s ease; }
-    .module-card:hover { box-shadow: 0 14px 32px rgba(15, 46, 31, .11); }
-    .stat-card { border: 1px solid var(--ec-border); box-shadow: 0 3px 10px rgba(15, 46, 31, .04); border-radius: var(--ec-radius); }
-    .stat-card:hover { border-color: #c5d9cc; box-shadow: var(--ec-shadow); transform: translateY(-2px); }
-    .metric-note { color: var(--ec-muted); font-size: .75rem; margin-top: .55rem; }
-    .metric-icon { width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border-radius: .7rem; }
-    .metric-icon--green { background: #ecfdf5; } .metric-icon--blue { background: #eff6ff; }
-    .metric-icon--amber { background: #fffbeb; } .metric-icon--violet { background: #f5f3ff; }
-    .tab-nav { border-bottom: 1px solid var(--ec-border); gap: .35rem; }
-    .tab-btn { border-radius: .55rem .55rem 0 0; padding: .75rem 1rem; font-size: .875rem; }
-    .tab-btn.active { background: var(--ec-primary-soft); color: var(--ec-primary-strong); border-color: transparent; box-shadow: inset 0 -2px 0 var(--ec-primary); }
-    .tab-btn:not(.active) { background: transparent; color: var(--ec-muted); }
-    .tab-btn:not(.active):hover { background: #eef3ef; color: var(--ec-ink); }
-    .section-caption { color: var(--ec-muted); font-size: .875rem; }
-    .data-label { background: #f8faf8; }
-    .input-field, input:not([type="checkbox"]), select {
-      border-color: #cfd9d2; background: #fff; color: var(--ec-ink); box-shadow: none;
+    .data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-muted);
+      color: var(--text-primary);
+      vertical-align: middle;
     }
-    input:not([type="checkbox"]):focus, select:focus { border-color: var(--ec-primary) !important; box-shadow: 0 0 0 3px rgba(16, 185, 129, .12); }
-    .prediction-card { border-color: #fcd34d; box-shadow: none; }
-    .table-shell { overflow-x: auto; border: 1px solid var(--ec-border); border-radius: .75rem; background: #fff; }
-    .data-table { width: 100%; min-width: 660px; border-collapse: collapse; font-size: .875rem; }
-    .data-table th { background: #f3f6f4; color: #526159; font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }
-    .data-table th, .data-table td { padding: .85rem 1rem; border-bottom: 1px solid #edf1ee; vertical-align: middle; }
-    .data-table tbody tr:last-child td { border-bottom: 0; }
-    .data-table tbody tr:hover { background: #f8fbf8; }
-    .data-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
-    .data-table .actions { text-align: right; white-space: nowrap; }
-    .table-id { color: var(--ec-primary-strong); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; font-weight: 700; }
-    .status-badge { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .3rem .6rem; font-size: .72rem; font-weight: 700; text-transform: capitalize; }
-    .status-badge::before { content: ""; width: .38rem; height: .38rem; border-radius: 50%; background: currentColor; }
-    .status-pending { background: #fffbeb; color: #a16207; } .status-confirmed { background: #ecfdf5; color: #047857; } .status-cancelled { background: #fef2f2; color: #b91c1c; }
-    .table-action { border-radius: .45rem; padding: .42rem .68rem; font-size: .75rem; font-weight: 700; transition: background .2s ease, transform .2s ease; }
-    .table-action:hover { transform: translateY(-1px); }
-    .table-action--confirm, .table-action--accept { background: #047857; color: #fff; }
-    .table-action--cancel { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .table-action--message { background: #fff; color: #047857; border: 1px solid #a7f3d0; }
-    .empty-state { border: 1px dashed #cbd7ce; border-radius: .75rem; color: var(--ec-muted); background: #fbfdfb; padding: 2.25rem 1.25rem; text-align: center; }
-    .loading-state { color: var(--ec-muted); padding: 2rem 1rem; text-align: center; }
-    .message-thread { border: 1px solid var(--ec-border); border-radius: .75rem; background: #fbfdfb; padding: .75rem; }
-    .message-bubble { border-color: var(--ec-border) !important; box-shadow: 0 1px 2px rgba(15, 46, 31, .04); }
-    .simulated-note { display: inline-flex; align-items: center; gap: .35rem; color: #856404; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: .35rem .6rem; font-size: .72rem; font-weight: 700; }
-    .chart-card canvas { max-height: 280px; }
-    @media (max-width: 640px) {
-      .dashboard-heading, .wallet-card { align-items: flex-start; flex-direction: column; }
-      .wallet-card > button { width: 100%; }
-      .tab-nav { margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem; }
-      .data-table { min-width: 580px; }
+    .data-table tr:hover td {
+      background: var(--bg-surface-hover);
+    }
+    .data-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
+    .data-table .numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .data-table .actions {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 9999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: capitalize;
+    }
+    .status-badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-confirmed, .status-active {
+      background: var(--accent-primary-soft);
+      color: var(--accent-primary-text);
+      border: 1px solid rgba(46, 160, 67, 0.3);
+    }
+    .status-pending {
+      background: var(--accent-web3-soft);
+      color: var(--accent-web3-text);
+      border: 1px solid rgba(246, 133, 27, 0.3);
+    }
+    .status-cancelled, .status-failed {
+      background: var(--accent-danger-soft);
+      color: var(--accent-danger);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+    .simulated-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(139, 148, 158, 0.12);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-default);
+      border-radius: 9999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    /* Status dots */
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-web3);
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .wallet-status.is-connected .status-dot {
+      background: var(--accent-primary-text);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 18px;
+      border-radius: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform: translateY(8px);
+    }
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .toast-success { border-left: 3px solid var(--accent-primary-text); }
+    .toast-error { border-left: 3px solid var(--accent-danger); }
+    .toast-warning { border-left: 3px solid var(--accent-web3); }
+
+    /* Prediction card */
+    .prediction-card {
+      background: rgba(246, 133, 27, 0.05);
+      border: 1px solid rgba(246, 133, 27, 0.3);
+      border-left: 3px solid var(--accent-web3);
+      border-radius: 6px;
+    }
+
+    /* Empty and Loading States */
+    .empty-state {
+      border: 1px dashed var(--border-default);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      background: var(--bg-subtle);
+      padding: 32px 16px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .loading-state {
+      color: var(--text-muted);
+      padding: 28px 16px;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* Chat message bubble */
+    .message-thread {
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      padding: 12px;
+    }
+    .message-bubble {
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-muted);
+      background: var(--bg-surface);
+    }
+    .message-bubble.is-me {
+      background: var(--accent-primary-soft);
+      border-color: rgba(46, 160, 67, 0.3);
+    }
+
+    /* Charts */
+    .chart-card canvas {
+      max-height: 240px;
     }
   </style>
 </head>
-<body class="font-sans antialiased bg-gray-50">
-  <!-- Navbar -->
-  <nav class="dashboard-nav fixed w-full top-0 z-50 bg-white" aria-label="Dashboard navigation">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-      <div class="brand-lockup flex items-center space-x-3">
-        <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
-        </svg>
-        <div><div class="text-2xl font-bold gradient-text">EnergyChain</div><div class="brand-subtitle">Energy marketplace</div></div>
-      </div>
-      <div class="flex items-center space-x-4">
-        <span id="headerWalletStatus" class="wallet-status"><span class="status-dot"></span>Wallet not connected</span>
-        <button id="logoutBtn" class="energy-gradient text-white px-6 py-2 rounded-lg font-semibold btn-glow">Log Out</button>
-      </div>
-    </div>
-  </nav>
+<body>
+  <div class="app-shell">
+    <!-- Mobile Drawer Backdrop -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" aria-hidden="true"></div>
 
-  <!-- Main Dashboard -->
-  <section class="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-7xl mx-auto">
-      <div class="dashboard-heading flex justify-between mb-8">
-        <div><p class="dashboard-eyebrow">Operations workspace</p><h1 class="text-4xl font-bold">Energy Dashboard</h1></div>
-        <div class="workspace-status"><span class="status-dot"></span>Data sources vary by module</div>
-      </div>
-
-      <!-- Connect Wallet -->
-      <div class="module-card wallet-card mb-8">
-        <div class="wallet-card__copy"><p class="wallet-card__title">Marketplace wallet</p><p class="wallet-card__hint">Connect MetaMask to view, create, accept, or cancel on-chain offers.</p><p id="accountDisplay" class="mt-2 text-sm text-gray-600" aria-live="polite"></p></div>
-        <button id="connectBtn" class="energy-gradient text-white px-6 py-3 rounded-lg font-semibold btn-glow">
-          Connect MetaMask / Wallet
+    <!-- Fixed Left Sidebar (240px) -->
+    <aside id="sidebar" class="sidebar" aria-label="Sidebar navigation">
+      <div class="sidebar-header">
+        <a href="/" class="flex items-center space-x-2 text-decoration-none">
+          <div class="w-7 h-7 rounded bg-[#21262D] border border-[var(--border-default)] flex items-center justify-center text-[var(--accent-primary-text)]">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
+            </svg>
+          </div>
+          <div>
+            <span class="text-sm font-bold text-[var(--text-primary)] tracking-tight">EnergyChain</span>
+            <span class="block text-[10px] font-mono text-[var(--text-muted)] tracking-wider uppercase">Platform v2</span>
+          </div>
+        </a>
+        <button id="sidebarCloseBtn" class="lg:hidden text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded" aria-label="Close sidebar">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      <!-- Energy Overview Stats -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="stat-card">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600 font-medium">Total Generation</span>
-            <span class="metric-icon metric-icon--green"><svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
-            </svg></span>
-          </div>
-          <p class="text-3xl font-bold text-gray-900"><span id="totalGeneration">0</span> kWh</p>
-          <div class="energy-meter mt-3">
-            <div class="energy-meter-fill bg-green-500" id="generationMeter" style="width: 0%"></div>
-          </div>
-          <p class="metric-note">Solar estimate + wind simulation</p>
-        </div>
-
-        <div class="stat-card">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600 font-medium">Active Offers</span>
-            <span class="metric-icon metric-icon--blue"><svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-              <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/>
-            </svg></span>
-          </div>
-          <p class="text-3xl font-bold text-gray-900" id="activeOffers">0</p>
-          <p class="metric-note">Visible active marketplace listings</p>
-        </div>
-
-        <div class="stat-card">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600 font-medium">Total Revenue</span>
-            <span class="metric-icon metric-icon--amber"><svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"/>
-            </svg></span>
-          </div>
-          <p class="text-3xl font-bold text-gray-900"><span id="totalRevenue">0.00</span> ETH</p>
-          <p class="metric-note">From locally recorded accept events</p>
-        </div>
-
-        <div class="stat-card">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600 font-medium">Battery Storage</span>
-            <span class="metric-icon metric-icon--violet"><svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
-            </svg></span>
-          </div>
-          <p class="text-3xl font-bold text-gray-900"><span id="batteryLevel">75</span>%</p>
-          <div class="energy-meter mt-3">
-            <div class="energy-meter-fill battery-gradient" id="batteryMeter" style="width: 75%"></div>
-          </div>
-          <p class="metric-note">Simulated storage cycle</p>
-        </div>
-      </div>
-
-      <!-- Tabs Navigation -->
-      <div class="tab-nav flex space-x-2 mb-8 overflow-x-auto pb-2" role="tablist" aria-label="Dashboard sections">
+      <!-- Navigation Items (Preserving .tab-btn and data-tab) -->
+      <nav class="sidebar-nav" role="tablist" aria-label="Dashboard sections">
+        <div class="nav-group-title">WORKSPACE</div>
         <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
           </svg>
           Overview
         </button>
         <button class="tab-btn" data-tab="solar" role="tab" aria-selected="false">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
           </svg>
           Solar Power
         </button>
+        <button class="tab-btn" data-tab="consumption" role="tab" aria-selected="false">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Consumption ML
+        </button>
         <button class="tab-btn" data-tab="wind" role="tab" aria-selected="false">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           Wind Energy
         </button>
         <button class="tab-btn" data-tab="marketplace" role="tab" aria-selected="false">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
           </svg>
           Marketplace
         </button>
         <button class="tab-btn" data-tab="bookings" role="tab" aria-selected="false">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
           Pre-booking
         </button>
         <button class="tab-btn" data-tab="history" role="tab" aria-selected="false">
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          History
+          History Ledger
         </button>
-      </div>
+      </nav>
 
-      <!-- Tab Content: Overview -->
-      <div class="tab-content" data-tab-content="overview" role="tabpanel">
-        <!-- Profile Card -->
-        <div class="module-card mb-8">
-          <h2 class="text-2xl font-bold mb-4 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-            </svg>
-            Your Profile
-          </h2>
-          <div class="grid md:grid-cols-3 gap-4 text-gray-700">
-            <div class="flex items-center space-x-2">
-              <span class="font-semibold">Name:</span>
-              <span id="profileName">-</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="font-semibold">Email:</span>
-              <span id="profileEmail">-</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="font-semibold">Wallet:</span>
-              <code id="profileWallet" class="text-xs bg-gray-100 px-2 py-1 rounded">-</code>
-            </div>
+      <!-- User Profile in Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="user-profile-card">
+          <div class="w-7 h-7 rounded bg-[var(--bg-surface-hover)] border border-[var(--border-default)] flex items-center justify-center text-xs font-mono font-semibold text-[var(--accent-primary-text)]">
+            <span id="profileAvatar">U</span>
           </div>
-        </div>
-
-        <!-- Energy Analytics -->
-        <div class="grid md:grid-cols-2 gap-8 mb-8">
-          <div class="module-card chart-card">
-            <div class="flex items-center justify-between mb-4"><h3 class="text-xl font-bold">Energy Production Trend</h3><span class="data-label">Sample series</span></div>
-            <canvas id="productionChart" height="200"></canvas>
-          </div>
-          <div class="module-card chart-card">
-            <div class="flex items-center justify-between mb-4"><h3 class="text-xl font-bold">Energy Mix Distribution</h3><span class="data-label">Sample distribution</span></div>
-            <canvas id="mixChart" height="200"></canvas>
+          <div class="min-w-0 flex-1">
+            <p id="profileName" class="text-xs font-semibold text-[var(--text-primary)] truncate">-</p>
+            <p id="profileEmail" class="text-[11px] text-[var(--text-muted)] truncate">-</p>
           </div>
         </div>
       </div>
+    </aside>
 
-      <!-- Tab Content: Solar Power -->
-      <div class="tab-content hidden" data-tab-content="solar" role="tabpanel">
-        <div class="module-card mb-8">
-          <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-              <svg class="w-8 h-8 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
-              </svg>
-              <h2 class="text-2xl font-bold solar-text">Solar Power Prediction</h2>
-            </div>
-            <span class="simulated-note">Local estimate</span>
-          </div>
-
-          <p class="text-gray-700 mb-6">Estimate AC power output from solar inputs. The current interface uses a local calculation until a trained backend model is connected.</p>
-
-          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div>
-              <label class="block text-gray-700 font-medium mb-2 text-sm">
-                <svg class="w-4 h-4 inline mr-1 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
-                </svg>
-                Date & Time
-              </label>
-              <input id="solarDateTime" type="datetime-local" 
-                     class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-amber-500 text-sm">
-            </div>
-
-            <div>
-              <label class="block text-gray-700 font-medium mb-2 text-sm">
-                <svg class="w-4 h-4 inline mr-1 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0z"/>
-                </svg>
-                Irradiation (W/m²)
-              </label>
-              <input id="solarIrradiation" type="number" step="0.01" placeholder="800.5"
-                     class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-amber-500 text-sm">
-              <p class="text-xs text-gray-500 mt-1">Range: 0-1200 W/m²</p>
-            </div>
-
-            <div>
-              <label class="block text-gray-700 font-medium mb-2 text-sm">
-                <svg class="w-4 h-4 inline mr-1 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/>
-                </svg>
-                Ambient Temp (°C)
-              </label>
-              <input id="solarAmbient" type="number" step="0.1" placeholder="25.5"
-                     class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-amber-500 text-sm">
-              <p class="text-xs text-gray-500 mt-1">Range: -10 to 50°C</p>
-            </div>
-
-            <div>
-              <label class="block text-gray-700 font-medium mb-2 text-sm">
-                <svg class="w-4 h-4 inline mr-1 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"/>
-                </svg>
-                Module Temp (°C)
-              </label>
-              <input id="solarModule" type="number" step="0.1" placeholder="45.2"
-                     class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-amber-500 text-sm">
-              <p class="text-xs text-gray-500 mt-1">Range: 0 to 85°C</p>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-3 mb-6">
-            <button id="predictBtn" 
-                    class="solar-gradient text-white px-6 py-2.5 rounded-lg font-semibold btn-glow btn-solar-glow flex items-center">
-              <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
-              </svg>
-              <span id="predictText">Predict AC Power</span>
-              <span id="predictSpinner" class="hidden ml-2">
-                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </span>
-            </button>
-
-            <button id="fillSampleBtn" 
-                    class="bg-gray-600 text-white px-6 py-2.5 rounded-lg font-semibold btn-glow flex items-center">
-              <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
-              </svg>
-              Fill Sample Data
-            </button>
-          </div>
-
-          <!-- Prediction Result -->
-          <div id="predictionResult" class="hidden prediction-card rounded-lg p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-bold text-amber-900">Prediction Result</h3>
-              <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
-              </svg>
-            </div>
-            
-            <div class="grid md:grid-cols-2 gap-6">
-              <div class="bg-white rounded-lg p-4 shadow-sm">
-                <p class="text-sm text-gray-600 mb-2">Predicted AC Power Output</p>
-                <p class="text-4xl font-bold text-amber-600"><span id="predictedPower">0.00</span> <span class="text-2xl">kW</span></p>
-              </div>
-              
-              <div class="bg-white rounded-lg p-4 shadow-sm">
-                <p class="text-sm text-gray-600 mb-2">Input Parameters</p>
-                <div class="text-sm space-y-1">
-                  <p><strong>Irradiation:</strong> <span id="resultIrradiation">-</span> W/m²</p>
-                  <p><strong>Ambient:</strong> <span id="resultAmbient">-</span> °C</p>
-                  <p><strong>Module:</strong> <span id="resultModule">-</span> °C</p>
-                  <p><strong>Time:</strong> <span id="resultTime">-</span></p>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-4 p-4 bg-amber-100 rounded-lg border border-amber-300">
-              <p class="text-sm text-amber-900">
-                <strong>💡 Tip:</strong> Use this prediction to optimize your energy offers on the marketplace!
-              </p>
-            </div>
-          </div>
+    <!-- Main Content Area -->
+    <div class="main-wrap">
+      <!-- Sticky Top Header Bar (60px) (#navbar preserved) -->
+      <header id="navbar" class="top-header" aria-label="Dashboard top navigation">
+        <div class="flex items-center space-x-3">
+          <button id="mobileMenuBtn" class="lg:hidden p-1.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] border border-[var(--border-default)]" aria-label="Open sidebar menu">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <span id="activeTabTitle" class="text-sm font-semibold text-[var(--text-primary)]">Operations Workspace</span>
+          <span class="hidden md:inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+            <span class="status-dot"></span>Sepolia Testnet
+          </span>
         </div>
-      </div>
 
-      <!-- Tab Content: Wind Energy -->
-      <div class="tab-content hidden" data-tab-content="wind" role="tabpanel">
-        <div class="module-card mb-8">
-          <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-              <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z"/>
-              </svg>
-              <h2 class="text-2xl font-bold wind-text">Wind Energy Monitor</h2>
+        <div class="flex items-center space-x-2.5">
+          <span id="headerWalletStatus" class="wallet-status hidden sm:inline-flex items-center text-xs font-mono px-2.5 py-1 rounded border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)]">
+            <span class="status-dot"></span>Wallet not connected
+          </span>
+          <!-- MetaMask Connect Button (#connectBtn preserved) -->
+          <button id="connectBtn" class="btn-wallet">
+            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            Connect Wallet
+          </button>
+          <!-- Logout Button (#logoutBtn preserved) -->
+          <button id="logoutBtn" class="btn-danger-ghost ml-1" aria-label="Log out">
+            <svg class="w-3.5 h-3.5 sm:mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span class="hidden sm:inline">Log Out</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page Canvas Body -->
+      <main class="page-body">
+        <!-- Wallet Permanent Binding Notification Strip -->
+        <div class="module-card mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[var(--bg-surface)]">
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 rounded bg-[var(--accent-web3-soft)] border border-[rgba(246,133,27,0.3)] flex items-center justify-center text-[var(--accent-web3-text)] shrink-0 mt-0.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </div>
-            <span class="simulated-note">Simulated data</span>
-          </div>
-
-          <div class="grid md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-200">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-sm text-gray-700 font-medium">Wind Speed</span>
-                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a1 1 0 011.414 0 9 9 0 010 12.728 1 1 0 11-1.414-1.414 7 7 0 000-9.9 1 1 0 010-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a1 1 0 011.415 0 5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 010-1.415zM10 9a1 1 0 011 1v.01a1 1 0 11-2 0V10a1 1 0 011-1z"/>
-                </svg>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)]">Permanent Wallet Binding</span>
+                <span class="status-badge status-pending">Immutable 1:1</span>
               </div>
-              <p class="text-3xl font-bold text-blue-700" id="windSpeed">12.5</p>
-              <p class="text-sm text-gray-600 mt-1">m/s</p>
+              <p class="text-xs text-[var(--text-secondary)] mt-0.5">The first MetaMask address linked is permanently bound to this user in PostgreSQL. Switch MetaMask before trading.</p>
+              <p id="accountDisplay" class="text-xs font-mono text-[var(--accent-primary-text)] mt-1" aria-live="polite"></p>
             </div>
+          </div>
+          <span class="simulated-note shrink-0 self-end sm:self-center">Sepolia 0xaa36a7</span>
+        </div>
 
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-200">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-sm text-gray-700 font-medium">Power Output</span>
-                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+        <!-- 4-Column KPI Overview Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <!-- Card 1: Total Generation -->
+          <div class="stat-card">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Generation</span>
+              <span class="w-6 h-6 rounded flex items-center justify-center bg-[var(--accent-primary-soft)] text-[var(--accent-primary-text)]">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                   <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
                 </svg>
-              </div>
-              <p class="text-3xl font-bold text-blue-700" id="windPower">8.3</p>
-              <p class="text-sm text-gray-600 mt-1">kW</p>
+              </span>
             </div>
+            <div class="mt-2.5 flex items-baseline space-x-1.5">
+              <span class="text-2xl font-semibold font-mono text-[var(--text-primary)]" id="totalGeneration">0</span>
+              <span class="text-xs font-mono text-[var(--text-secondary)]">kWh</span>
+            </div>
+            <div class="energy-meter mt-3">
+              <div class="energy-meter-fill bg-[var(--accent-primary)]" id="generationMeter" style="width: 0%"></div>
+            </div>
+            <p class="text-[11px] text-[var(--text-muted)] mt-2">Solar estimate + wind simulation</p>
+          </div>
 
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-200">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-sm text-gray-700 font-medium">Efficiency</span>
-                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+          <!-- Card 2: Active Offers -->
+          <div class="stat-card">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Active Offers</span>
+              <span class="w-6 h-6 rounded flex items-center justify-center bg-[var(--accent-wind-soft)] text-[var(--accent-wind)]">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                  <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/>
                 </svg>
+              </span>
+            </div>
+            <div class="mt-2.5 flex items-baseline space-x-1.5">
+              <span class="text-2xl font-semibold font-mono text-[var(--text-primary)]" id="activeOffers">0</span>
+              <span class="text-xs text-[var(--text-secondary)]">listings</span>
+            </div>
+            <div class="energy-meter mt-3">
+              <div class="energy-meter-fill bg-[var(--accent-wind)]" style="width: 100%"></div>
+            </div>
+            <p class="text-[11px] text-[var(--text-muted)] mt-2">Visible marketplace listings</p>
+          </div>
+
+          <!-- Card 3: Total Revenue -->
+          <div class="stat-card">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Revenue</span>
+              <span class="w-6 h-6 rounded flex items-center justify-center bg-[var(--accent-web3-soft)] text-[var(--accent-web3-text)]">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="mt-2.5 flex items-baseline space-x-1.5">
+              <span class="text-2xl font-semibold font-mono text-[var(--text-primary)]" id="totalRevenue">0.000</span>
+              <span class="text-xs font-mono text-[var(--text-secondary)]">ETH</span>
+            </div>
+            <div class="energy-meter mt-3">
+              <div class="energy-meter-fill bg-[var(--accent-web3)]" style="width: 100%"></div>
+            </div>
+            <p class="text-[11px] text-[var(--text-muted)] mt-2">From recorded accept events</p>
+          </div>
+
+          <!-- Card 4: Battery Storage -->
+          <div class="stat-card">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Battery Storage</span>
+              <span class="w-6 h-6 rounded flex items-center justify-center bg-[var(--accent-battery-soft)] text-[var(--accent-battery)]">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="mt-2.5 flex items-baseline space-x-1.5">
+              <span class="text-2xl font-semibold font-mono text-[var(--text-primary)]" id="batteryLevel">75</span>
+              <span class="text-xs font-mono text-[var(--text-secondary)]">%</span>
+            </div>
+            <div class="energy-meter mt-3">
+              <div class="energy-meter-fill bg-[var(--accent-battery)]" id="batteryMeter" style="width: 75%"></div>
+            </div>
+            <p class="text-[11px] text-[var(--text-muted)] mt-2">Simulated storage cycle</p>
+          </div>
+        </div>
+
+        <!-- ==================== TAB CONTENT: OVERVIEW ==================== -->
+        <div class="tab-content" data-tab-content="overview" role="tabpanel">
+          <!-- Identity Summary Box -->
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Account Identity & Web3 Binding</h2>
               </div>
-              <p class="text-3xl font-bold text-blue-700" id="windEfficiency">87</p>
-              <p class="text-sm text-gray-600 mt-1">%</p>
+              <span class="status-badge status-confirmed">Authenticated</span>
             </div>
-          </div>
-
-          <div class="module-card bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-            <h3 class="text-lg font-bold mb-4">Wind Turbine Status</h3>
-            <div class="grid md:grid-cols-2 gap-4">
-              <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-gray-600">Turbine 1</span>
-                  <span class="text-sm font-semibold text-green-600">Active</span>
-                </div>
-                <div class="energy-meter">
-                  <div class="energy-meter-fill wind-gradient" style="width: 92%"></div>
-                </div>
-                <p class="text-xs text-gray-500">Output: 4.2 kW</p>
+            <div class="grid md:grid-cols-3 gap-3 text-xs">
+              <div class="p-3 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[var(--text-muted)] block mb-1">User Name</span>
+                <span id="profileNameOverview" class="font-semibold text-[var(--text-primary)]">-</span>
               </div>
-
-              <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-gray-600">Turbine 2</span>
-                  <span class="text-sm font-semibold text-green-600">Active</span>
-                </div>
-                <div class="energy-meter">
-                  <div class="energy-meter-fill wind-gradient" style="width: 88%"></div>
-                </div>
-                <p class="text-xs text-gray-500">Output: 4.1 kW</p>
+              <div class="p-3 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[var(--text-muted)] block mb-1">Email Address</span>
+                <span id="profileEmailOverview" class="font-semibold text-[var(--text-primary)]">-</span>
+              </div>
+              <div class="p-3 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[var(--text-muted)] block mb-1">Permanent Bound Wallet</span>
+                <code id="profileWallet" class="font-mono text-xs text-[var(--accent-wind)]">-</code>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Tab Content: Marketplace -->
-      <div class="tab-content hidden" data-tab-content="marketplace" role="tabpanel">
-        <!-- Create Offer -->
-        <div class="module-card mb-8">
-          <h2 class="text-2xl font-bold mb-6 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
-            </svg>
-            Create Energy Offer
-          </h2>
-          <div class="grid md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Your Name (public)</label>
-              <input id="userName" type="text" placeholder="John Doe"
-                     class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
-              <p id="userNameError" class="text-sm text-red-600 hidden mt-1">Name is required</p>
+          <!-- 2-Column Analytics Charts -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="module-card chart-card">
+              <div class="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-muted)]">
+                <h3 class="text-sm font-semibold text-[var(--text-primary)]">Energy Production Trend</h3>
+                <span class="simulated-note">Sample series</span>
+              </div>
+              <canvas id="productionChart" height="200" aria-label="Energy Production Trend Chart"></canvas>
             </div>
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Price (ETH) ≥ 0.01</label>
-              <input id="priceEth" type="number" step="0.001" min="0.01" placeholder="0.05"
-                     class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
-              <p id="priceEthError" class="text-sm text-red-600 hidden mt-1">Price must be ≥ 0.01 ETH</p>
+            <div class="module-card chart-card">
+              <div class="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-muted)]">
+                <h3 class="text-sm font-semibold text-[var(--text-primary)]">Energy Mix Distribution</h3>
+                <span class="simulated-note">Sample distribution</span>
+              </div>
+              <canvas id="mixChart" height="200" aria-label="Energy Mix Distribution Chart"></canvas>
             </div>
-          </div>
-          <button id="createOfferBtn" disabled
-                  class="mt-6 energy-gradient text-white w-full py-3 rounded-lg font-semibold btn-glow flex items-center justify-center">
-            <span id="createText">Create Offer</span>
-            <span id="createSpinner" class="hidden ml-2">
-              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </span>
-          </button>
-          <p class="mt-3 text-sm text-gray-600 text-center">Minimum price: <strong>0.01 ETH</strong></p>
-        </div>
-
-        <!-- Filters -->
-        <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <label class="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" id="showAllToggle" class="rounded" checked>
-            <span class="text-sm text-gray-600">Show all marketplace offers</span>
-          </label>
-          <div class="flex items-center gap-2 flex-wrap">
-            <label for="offerSearch" class="sr-only">Search active offers</label>
-            <input id="offerSearch" type="search" placeholder="Search offer ID or seller" class="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-green-500">
-            <label class="text-sm text-gray-600">Sort by:</label>
-            <select id="sortOffers" class="border rounded-lg px-3 py-2 focus:outline-none focus:border-green-500">
-              <option value="id">Offer ID</option>
-              <option value="priceAsc">Price (Low to High)</option>
-              <option value="priceDesc">Price (High to Low)</option>
-              <option value="dateDesc">Date (Newest)</option>
-            </select>
           </div>
         </div>
 
-        <!-- Offers Table -->
-        <div class="module-card">
-          <h2 class="text-2xl font-bold mb-6 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/>
-            </svg>
-            Active Offers
-          </h2>
-          <div id="offersContainer" class="space-y-3">
-            <p class="text-gray-500 text-center py-8">Loading offers from blockchain…</p>
+        <!-- ==================== TAB CONTENT: SOLAR ==================== -->
+        <div class="tab-content hidden" data-tab-content="solar" role="tabpanel">
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-web3-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Solar Power Prediction</h2>
+              </div>
+              <span class="simulated-note">Local estimate</span>
+            </div>
+            <p class="text-xs text-[var(--text-secondary)] mb-5">Estimate AC power output from weather metrics. Uses a local heuristic until a trained backend model is deployed.</p>
+
+            <!-- 4-Column Inputs -->
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <div>
+                <label for="solarDateTime" class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Date & Time</label>
+                <input id="solarDateTime" type="datetime-local" class="w-full">
+              </div>
+              <div>
+                <label for="solarIrradiation" class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Irradiation (W/m²)</label>
+                <input id="solarIrradiation" type="number" step="0.01" placeholder="800.5" class="w-full">
+                <p class="text-[11px] text-[var(--text-muted)] mt-1">Expected: 0–1200 W/m²</p>
+              </div>
+              <div>
+                <label for="solarAmbient" class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Ambient Temp (°C)</label>
+                <input id="solarAmbient" type="number" step="0.1" placeholder="25.5" class="w-full">
+                <p class="text-[11px] text-[var(--text-muted)] mt-1">Expected: -10 to 50°C</p>
+              </div>
+              <div>
+                <label for="solarModule" class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Module Temp (°C)</label>
+                <input id="solarModule" type="number" step="0.1" placeholder="45.2" class="w-full">
+                <p class="text-[11px] text-[var(--text-muted)] mt-1">Expected: 0 to 85°C</p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 mb-4">
+              <button id="predictBtn" class="btn-primary">
+                <span id="predictText">Predict AC Power</span>
+                <span id="predictSpinner" class="hidden ml-2" aria-hidden="true">●</span>
+              </button>
+              <button id="fillSampleBtn" class="btn-secondary">
+                Fill Sample Data
+              </button>
+            </div>
+
+            <!-- Prediction Result Callout -->
+            <div id="predictionResult" class="hidden prediction-card p-4 mt-4">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold uppercase tracking-wider text-[var(--accent-web3-text)]">Predicted AC Power Output</span>
+                <span class="text-xs font-mono text-[var(--text-muted)]" id="resultTime">-</span>
+              </div>
+              <div class="flex items-baseline space-x-2">
+                <span class="text-3xl font-bold font-mono text-[var(--accent-web3-text)]" id="predictedPower">0.00</span>
+                <span class="text-sm font-mono text-[var(--text-secondary)]">kW</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-[rgba(246,133,27,0.2)] text-[11px]">
+                <div><span class="text-[var(--text-muted)]">Irradiation:</span> <span id="resultIrradiation" class="font-mono text-[var(--text-primary)]">-</span> W/m²</div>
+                <div><span class="text-[var(--text-muted)]">Ambient:</span> <span id="resultAmbient" class="font-mono text-[var(--text-primary)]">-</span> °C</div>
+                <div><span class="text-[var(--text-muted)]">Module:</span> <span id="resultModule" class="font-mono text-[var(--text-primary)]">-</span> °C</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Tab Content: Pre-booking and customer/provider messages -->
-      <div class="tab-content hidden" data-tab-content="bookings" role="tabpanel">
-        <div class="module-card mb-8">
-          <div class="flex items-center justify-between gap-4 flex-wrap mb-3">
-            <h2 class="text-2xl font-bold">Reserve Energy</h2>
-            <span id="bookingAuthStatus" class="text-sm text-gray-600">Checking booking access…</span>
+        <!-- ==================== TAB CONTENT: CONSUMPTION ==================== -->
+        <div class="tab-content hidden" data-tab-content="consumption" role="tabpanel">
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Energy Consumption ML Inference</h2>
+              </div>
+              <span class="simulated-note">Model Trained on CSV</span>
+            </div>
+            <p class="text-xs text-[var(--text-secondary)] mb-4">Inference against the trained Energy Consumption machine-learning pipeline.</p>
+
+            <form id="consumptionForm" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3" novalidate>
+              <div>
+                <label for="consumptionTimestamp" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Timestamp</label>
+                <input id="consumptionTimestamp" type="datetime-local" required class="w-full">
+              </div>
+              <div>
+                <label for="consumptionTemperature" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Temperature (°C)</label>
+                <input id="consumptionTemperature" type="number" step="0.01" required placeholder="28.5" class="w-full">
+              </div>
+              <div>
+                <label for="consumptionHumidity" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Humidity (%)</label>
+                <input id="consumptionHumidity" type="number" min="0" max="100" step="0.01" required placeholder="65" class="w-full">
+              </div>
+              <div>
+                <label for="consumptionSquareFootage" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Square Footage</label>
+                <input id="consumptionSquareFootage" type="number" min="0.01" step="0.01" required placeholder="1500" class="w-full">
+              </div>
+              <div>
+                <label for="consumptionOccupancy" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Occupancy</label>
+                <input id="consumptionOccupancy" type="number" min="0" step="1" required placeholder="5" class="w-full">
+              </div>
+              <div>
+                <label for="consumptionRenewableEnergy" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Renewable Input</label>
+                <input id="consumptionRenewableEnergy" type="number" min="0" step="0.01" required placeholder="12.5" class="w-full">
+              </div>
+              <div>
+                <label for="consumptionHvacUsage" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">HVAC Usage</label>
+                <select id="consumptionHvacUsage" required class="w-full">
+                  <option value="">Select usage</option>
+                  <option value="On">On</option>
+                  <option value="Off">Off</option>
+                </select>
+              </div>
+              <div>
+                <label for="consumptionLightingUsage" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Lighting Usage</label>
+                <select id="consumptionLightingUsage" required class="w-full">
+                  <option value="">Select usage</option>
+                  <option value="On">On</option>
+                  <option value="Off">Off</option>
+                </select>
+              </div>
+              <div>
+                <label for="consumptionDayOfWeek" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Day of Week</label>
+                <select id="consumptionDayOfWeek" required class="w-full">
+                  <option value="">Select day</option>
+                  <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+                  <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+                </select>
+              </div>
+              <div>
+                <label for="consumptionHoliday" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Holiday</label>
+                <select id="consumptionHoliday" required class="w-full">
+                  <option value="">Select status</option>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2 flex items-center space-x-2 pt-2">
+                <button id="consumptionPredictBtn" type="submit" class="btn-primary">
+                  <span id="consumptionPredictText">Predict consumption</span>
+                  <span id="consumptionPredictSpinner" class="hidden ml-2" aria-hidden="true">●</span>
+                </button>
+                <button id="consumptionResetBtn" type="button" class="btn-secondary">Reset</button>
+              </div>
+            </form>
+            <p id="consumptionError" class="hidden mt-3 text-xs text-[var(--accent-danger)] bg-[var(--accent-danger-soft)] border border-[rgba(248,81,73,0.3)] rounded p-2.5" role="alert"></p>
           </div>
-          <p class="text-gray-600 mb-6">Reserve an agreed quantity for a future delivery time. The provider can confirm it; either participant can cancel it while pending.</p>
-          <form id="bookingForm" class="grid md:grid-cols-2 gap-5">
-            <div>
-              <label for="bookingProviderEmail" class="block text-gray-700 font-medium mb-2">Energy provider email</label>
-              <input id="bookingProviderEmail" type="email" required placeholder="provider@example.com" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
+
+          <!-- Consumption Result -->
+          <div id="consumptionResult" class="hidden grid md:grid-cols-2 gap-4">
+            <div class="module-card">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Predicted Value</span>
+              <div class="mt-2 text-3xl font-bold font-mono text-[var(--accent-primary-text)]">
+                <span id="consumptionPredictionValue">0.00</span>
+              </div>
+              <p id="consumptionPredictionUnit" class="text-xs font-mono text-[var(--text-muted)] mt-1">Dataset Unit</p>
+              <p id="consumptionModelName" class="text-xs text-[var(--text-secondary)] mt-3 pt-3 border-t border-[var(--border-muted)]"></p>
+              <p id="consumptionWarning" class="hidden mt-2 text-xs text-[var(--accent-warning)] bg-[var(--accent-warning-soft)] border border-[rgba(210,153,34,0.3)] rounded p-2"></p>
             </div>
-            <div>
-              <label for="bookingScheduledFor" class="block text-gray-700 font-medium mb-2">Delivery date and time</label>
-              <input id="bookingScheduledFor" type="datetime-local" required class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
+            <div class="module-card chart-card">
+              <span class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">Visualization</span>
+              <canvas id="consumptionPredictionChart" height="200"></canvas>
             </div>
-            <div>
-              <label for="bookingEnergyUnits" class="block text-gray-700 font-medium mb-2">Energy quantity (kWh)</label>
-              <input id="bookingEnergyUnits" type="number" min="0.01" step="0.01" required placeholder="25" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
-            </div>
-            <div>
-              <label for="bookingPricePerUnit" class="block text-gray-700 font-medium mb-2">Agreed price per kWh</label>
-              <input id="bookingPricePerUnit" type="number" min="0" step="0.000001" required placeholder="0.05" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
-            </div>
-            <div class="md:col-span-2 flex items-center justify-between gap-4 flex-wrap">
-              <p class="text-sm text-gray-600">Estimated total: <strong id="bookingTotal">0.000000</strong></p>
-              <button id="createBookingBtn" type="submit" class="energy-gradient text-white px-6 py-3 rounded-lg font-semibold btn-glow">Create pre-booking</button>
-            </div>
-          </form>
+          </div>
         </div>
 
-        <div class="grid lg:grid-cols-2 gap-8">
+        <!-- ==================== TAB CONTENT: WIND ==================== -->
+        <div class="tab-content hidden" data-tab-content="wind" role="tabpanel">
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-wind)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Wind Energy Telemetry Monitor</h2>
+              </div>
+              <span class="simulated-note">Simulated · 5s cycle</span>
+            </div>
+
+            <!-- 3-Column Telemetry Cards -->
+            <div class="grid sm:grid-cols-3 gap-3 mb-6">
+              <div class="p-3.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Wind Speed</span>
+                <div class="mt-1 flex items-baseline space-x-1">
+                  <span id="windSpeed" class="text-2xl font-bold font-mono text-[var(--accent-wind)]">12.5</span>
+                  <span class="text-xs text-[var(--text-muted)]">m/s</span>
+                </div>
+              </div>
+              <div class="p-3.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Power Output</span>
+                <div class="mt-1 flex items-baseline space-x-1">
+                  <span id="windPower" class="text-2xl font-bold font-mono text-[var(--accent-wind)]">8.3</span>
+                  <span class="text-xs text-[var(--text-muted)]">kW</span>
+                </div>
+              </div>
+              <div class="p-3.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+                <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Efficiency</span>
+                <div class="mt-1 flex items-baseline space-x-1">
+                  <span id="windEfficiency" class="text-2xl font-bold font-mono text-[var(--accent-wind)]">87</span>
+                  <span class="text-xs text-[var(--text-muted)]">%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Turbine Status Modules -->
+            <div class="p-3.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-muted)]">
+              <h3 class="text-xs font-semibold text-[var(--text-primary)] mb-3">Turbine Generation Array</h3>
+              <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-[var(--text-secondary)]">Turbine #01 (Vestas V90)</span>
+                    <span class="text-[var(--accent-primary-text)] font-mono font-medium">Active · 4.2 kW</span>
+                  </div>
+                  <div class="energy-meter">
+                    <div class="energy-meter-fill bg-[var(--accent-wind)]" style="width: 92%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-[var(--text-secondary)]">Turbine #02 (Siemens SWT)</span>
+                    <span class="text-[var(--accent-primary-text)] font-mono font-medium">Active · 4.1 kW</span>
+                  </div>
+                  <div class="energy-meter">
+                    <div class="energy-meter-fill bg-[var(--accent-wind)]" style="width: 88%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== TAB CONTENT: MARKETPLACE ==================== -->
+        <div class="tab-content hidden" data-tab-content="marketplace" role="tabpanel">
+          <!-- Create Offer Panel -->
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Create Energy Offer</h2>
+              </div>
+              <span class="text-xs font-mono text-[var(--text-muted)]">Min: 0.01 ETH</span>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label for="userName" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Seller Public Name</label>
+                <input id="userName" type="text" placeholder="John Doe" class="w-full">
+                <p id="userNameError" class="text-xs text-[var(--accent-danger)] hidden mt-1">Name is required</p>
+              </div>
+              <div>
+                <label for="priceEth" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Price (ETH) ≥ 0.01</label>
+                <input id="priceEth" type="number" step="0.001" min="0.01" placeholder="0.05" class="w-full">
+                <p id="priceEthError" class="text-xs text-[var(--accent-danger)] hidden mt-1">Price must be ≥ 0.01 ETH</p>
+              </div>
+            </div>
+            <button id="createOfferBtn" disabled class="btn-primary">
+              <span id="createText">Create Offer</span>
+              <span id="createSpinner" class="hidden ml-2" aria-hidden="true">●</span>
+            </button>
+          </div>
+
+          <!-- Active Offers Toolbar & Table -->
           <div class="module-card">
-            <div class="flex items-center justify-between mb-5">
-              <h2 class="text-2xl font-bold">My Pre-bookings</h2>
-              <button id="refreshBookingsBtn" type="button" class="text-green-700 font-semibold hover:text-green-800">Refresh</button>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-wind)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Active Marketplace Orderbook</h2>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <label class="flex items-center space-x-1.5 text-xs text-[var(--text-secondary)] cursor-pointer">
+                  <input type="checkbox" id="showAllToggle" checked class="rounded border-[var(--border-default)]">
+                  <span>All offers</span>
+                </label>
+                <input id="offerSearch" type="search" placeholder="Search ID or wallet" class="text-xs h-7 px-2 w-36 sm:w-44">
+                <select id="sortOffers" class="text-xs h-7 px-2">
+                  <option value="id">Offer ID</option>
+                  <option value="priceAsc">Price (Low → High)</option>
+                  <option value="priceDesc">Price (High → Low)</option>
+                  <option value="dateDesc">Newest First</option>
+                </select>
+              </div>
             </div>
-            <div id="bookingsContainer" class="space-y-3">
-              <p class="text-gray-500 text-center py-8">Sign in with a backend account to view bookings.</p>
+            <div id="offersContainer">
+              <p class="loading-state">Loading active listings from blockchain…</p>
             </div>
           </div>
 
-          <div class="module-card">
-            <h2 class="text-2xl font-bold mb-2">Booking Conversation</h2>
-            <p id="messageBookingTitle" class="text-sm text-gray-600 mb-5">Select a booking to message its customer or provider.</p>
-            <div id="bookingMessages" class="space-y-3 max-h-80 overflow-y-auto mb-5">
-              <p class="text-gray-500 text-center py-8">No booking selected.</p>
+          <!-- Preserved Legacy Offers -->
+          <div class="module-card mt-6">
+            <div class="flex items-center justify-between pb-3 mb-2 border-b border-[var(--border-muted)]">
+              <h3 class="text-sm font-semibold text-[var(--text-secondary)]">Historical Legacy Offers Snapshot</h3>
+              <span class="simulated-note">Audit Snapshot</span>
             </div>
-            <form id="bookingMessageForm" class="flex gap-3">
-              <input id="bookingMessageInput" type="text" maxlength="2000" disabled placeholder="Write a message…" class="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:border-green-500">
-              <button id="sendBookingMessageBtn" type="submit" disabled class="energy-gradient text-white px-5 py-3 rounded-lg font-semibold">Send</button>
+            <p class="text-xs text-[var(--text-muted)] mb-3">Preserved from the prior contract deployment for historical reference.</p>
+            <div id="historicalOffersContainer">
+              <p class="loading-state">Historical offers load after wallet connection.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== TAB CONTENT: BOOKINGS ==================== -->
+        <div class="tab-content hidden" data-tab-content="bookings" role="tabpanel">
+          <!-- Reserve Energy Form -->
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Reserve Future Energy</h2>
+              </div>
+              <span id="bookingAuthStatus" class="text-xs font-mono text-[var(--text-muted)]">Checking session…</span>
+            </div>
+
+            <form id="bookingForm" class="grid sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label for="bookingProviderEmail" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Provider Email</label>
+                <input id="bookingProviderEmail" type="email" required placeholder="provider@example.com" class="w-full">
+              </div>
+              <div>
+                <label for="bookingScheduledFor" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Delivery Schedule</label>
+                <input id="bookingScheduledFor" type="datetime-local" required class="w-full">
+              </div>
+              <div>
+                <label for="bookingEnergyUnits" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity (kWh)</label>
+                <input id="bookingEnergyUnits" type="number" min="0.01" step="0.01" required placeholder="25" class="w-full">
+              </div>
+              <div>
+                <label for="bookingPricePerUnit" class="block text-xs font-medium text-[var(--text-secondary)] mb-1">Price per kWh</label>
+                <input id="bookingPricePerUnit" type="number" min="0" step="0.000001" required placeholder="0.05" class="w-full">
+              </div>
+              <div class="sm:col-span-2 flex items-center justify-between pt-2">
+                <span class="text-xs text-[var(--text-secondary)]">Total: <strong id="bookingTotal" class="font-mono text-[var(--text-primary)]">0.000000</strong></span>
+                <button id="createBookingBtn" type="submit" class="btn-primary">Create Pre-booking</button>
+              </div>
             </form>
           </div>
-        </div>
-      </div>
 
-      <!-- Tab Content: History -->
-      <div class="tab-content hidden" data-tab-content="history" role="tabpanel">
-        <div class="module-card">
-          <h2 class="text-2xl font-bold mb-6 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
-            </svg>
-            Accepted Offers (Transaction History)
-          </h2>
-          <div id="acceptedContainer" class="space-y-3">
-            <p class="text-gray-500 text-center py-8">No accepted offers yet.</p>
+          <!-- Bookings & Conversation Grid -->
+          <div class="grid lg:grid-cols-2 gap-4">
+            <!-- Bookings List -->
+            <div class="module-card">
+              <div class="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-muted)]">
+                <h3 class="text-sm font-semibold text-[var(--text-primary)]">My Pre-bookings</h3>
+                <button id="refreshBookingsBtn" type="button" class="text-xs text-[var(--accent-wind)] hover:underline">Refresh</button>
+              </div>
+              <div id="bookingsContainer">
+                <p class="loading-state">Sign in with a backend account to view bookings.</p>
+              </div>
+            </div>
+
+            <!-- Booking Conversation Panel -->
+            <div class="module-card flex flex-col h-[480px]">
+              <div class="pb-3 mb-3 border-b border-[var(--border-muted)]">
+                <h3 class="text-sm font-semibold text-[var(--text-primary)]">Direct Participant Thread</h3>
+                <p id="messageBookingTitle" class="text-xs text-[var(--text-muted)] truncate">Select a booking to open messaging.</p>
+              </div>
+              <div id="bookingMessages" class="flex-1 overflow-y-auto mb-3 message-thread">
+                <p class="loading-state">No booking selected.</p>
+              </div>
+              <form id="bookingMessageForm" class="flex items-center space-x-2">
+                <input id="bookingMessageInput" type="text" maxlength="2000" disabled placeholder="Write a message…" class="flex-1">
+                <button id="sendBookingMessageBtn" type="submit" disabled class="btn-primary">Send</button>
+              </form>
+            </div>
           </div>
         </div>
 
-        <!-- Charts -->
-        <div class="grid md:grid-cols-2 gap-8 mt-8">
-          <div class="module-card chart-card">
-            <h3 class="text-xl font-bold mb-4">Price History</h3>
-            <canvas id="priceChart" height="200"></canvas>
+        <!-- ==================== TAB CONTENT: HISTORY ==================== -->
+        <div class="tab-content hidden" data-tab-content="history" role="tabpanel">
+          <div class="module-card mb-6">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-muted)]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Accepted Offers Ledger (On-Chain)</h2>
+              </div>
+              <span class="status-badge status-confirmed">Live Verification</span>
+            </div>
+            <div id="acceptedContainer">
+              <p class="loading-state">No accepted offers recorded yet.</p>
+            </div>
           </div>
-          <div class="module-card chart-card">
-            <h3 class="text-xl font-bold mb-4">Accepted by Seller</h3>
-            <canvas id="acceptedChart" height="200"></canvas>
+
+          <!-- History Analytics Charts -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="module-card chart-card">
+              <h3 class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Price Trend History</h3>
+              <canvas id="priceChart" height="200"></canvas>
+            </div>
+            <div class="module-card chart-card">
+              <h3 class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Accepted by Seller</h3>
+              <canvas id="acceptedChart" height="200"></canvas>
+            </div>
           </div>
         </div>
-      </div>
-
+      </main>
     </div>
-  </section>
+  </div>
 
-  <!-- Toast Notification -->
+  <!-- Accessible Toast (#toast preserved) -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- ==================== SCRIPT ==================== -->
+  <!-- ==================== PRESERVED SCRIPT ENGINE ==================== -->
   <script>
     // -------------------------------------------------
-    // GLOBAL STATE
+    // GLOBAL STATE & CHART THEME
     // -------------------------------------------------
     let hasRequested = false;
     let hasConnected = false;
     let provider, signer, contract, userAddress, userHash;
+    let activeContractAddress;
+    let marketplaceIsHistorical = false;
+    let historicalOffers = [];
     let acceptedOffers = JSON.parse(localStorage.getItem("acceptedOffers")) || [];
-    let priceChart, acceptedChart, productionChart, mixChart;
+    let priceChart, acceptedChart, productionChart, mixChart, consumptionChart;
     let pollInterval;
     let currentTab = 'overview';
+    const WALLET_BINDINGS_STORAGE_KEY = "energychain.wallet-bindings.v1";
+
+    const CHART_THEME = {
+      textColor: '#8B949E',
+      gridColor: '#21262D',
+      tooltipBg: '#161B22',
+      tooltipBorder: '#30363D',
+      tooltipTitle: '#F0F6FC',
+      tooltipBody: '#C9D1D9',
+      fontFamily: "'Inter', -apple-system, sans-serif",
+      monoFamily: "'JetBrains Mono', monospace",
+      colors: {
+        solar:   { stroke: '#F6851B', fill: 'rgba(246, 133, 27, 0.12)' },
+        wind:    { stroke: '#58A6FF', fill: 'rgba(88, 166, 255, 0.12)' },
+        battery: { stroke: '#A371F7', fill: 'rgba(163, 113, 247, 0.12)' },
+        energy:  { stroke: '#3FB950', fill: 'rgba(63, 185, 80, 0.12)' }
+      }
+    };
 
     if (window.Chart) {
-      Chart.defaults.font.family = "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      Chart.defaults.color = "#526159";
-      Chart.defaults.borderColor = "#e5ece7";
+      Chart.defaults.font.family = CHART_THEME.fontFamily;
+      Chart.defaults.color = CHART_THEME.textColor;
+      Chart.defaults.borderColor = CHART_THEME.gridColor;
       Chart.defaults.plugins.legend.labels.usePointStyle = true;
       Chart.defaults.plugins.legend.labels.boxWidth = 8;
-      Chart.defaults.plugins.tooltip.backgroundColor = "#17211d";
+      Chart.defaults.plugins.legend.labels.color = CHART_THEME.textColor;
+      Chart.defaults.plugins.tooltip.backgroundColor = CHART_THEME.tooltipBg;
+      Chart.defaults.plugins.tooltip.borderColor = CHART_THEME.tooltipBorder;
+      Chart.defaults.plugins.tooltip.borderWidth = 1;
+      Chart.defaults.plugins.tooltip.titleColor = CHART_THEME.tooltipTitle;
+      Chart.defaults.plugins.tooltip.bodyColor = CHART_THEME.tooltipBody;
       Chart.defaults.plugins.tooltip.padding = 10;
+      Chart.defaults.plugins.tooltip.cornerRadius = 6;
     }
 
     // -------------------------------------------------
-    // TAB MANAGEMENT
+    // TAB MANAGEMENT & MOBILE DRAWER
     // -------------------------------------------------
     function initTabs() {
       const tabBtns = document.querySelectorAll('.tab-btn');
       const tabContents = document.querySelectorAll('.tab-content');
+      const activeTabTitle = document.getElementById('activeTabTitle');
+
+      const tabTitles = {
+        overview: "Overview",
+        solar: "Solar Power Prediction",
+        consumption: "Energy Consumption ML",
+        wind: "Wind Energy Telemetry",
+        marketplace: "Decentralized Marketplace",
+        bookings: "Energy Pre-bookings & Messages",
+        history: "Transaction Ledger & Analytics"
+      };
 
       tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
           const targetTab = btn.dataset.tab;
           
-          // Update buttons
           tabBtns.forEach(b => {
             b.classList.remove('active');
             b.setAttribute('aria-selected', 'false');
@@ -808,7 +1372,6 @@
           btn.classList.add('active');
           btn.setAttribute('aria-selected', 'true');
           
-          // Update content
           tabContents.forEach(content => {
             if (content.dataset.tabContent === targetTab) {
               content.classList.remove('hidden');
@@ -818,60 +1381,98 @@
           });
           
           currentTab = targetTab;
+          if (activeTabTitle) {
+            activeTabTitle.textContent = tabTitles[targetTab] || "Operations Workspace";
+          }
+
+          // Close mobile sidebar drawer if open
+          const sidebar = document.getElementById('sidebar');
+          const backdrop = document.getElementById('sidebarBackdrop');
+          if (sidebar && backdrop && window.innerWidth < 1024) {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('open');
+          }
           
-          // Update charts if switching to relevant tabs
           if (targetTab === 'overview') {
             updateOverviewCharts();
           }
         });
       });
+
+      // Mobile Drawer Toggle listeners
+      const mobileBtn = document.getElementById('mobileMenuBtn');
+      const closeBtn = document.getElementById('sidebarCloseBtn');
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+
+      if (mobileBtn && sidebar && backdrop) {
+        mobileBtn.addEventListener('click', () => {
+          sidebar.classList.add('open');
+          backdrop.classList.add('open');
+        });
+      }
+      if (closeBtn && sidebar && backdrop) {
+        closeBtn.addEventListener('click', () => {
+          sidebar.classList.remove('open');
+          backdrop.classList.remove('open');
+        });
+      }
+      if (backdrop && sidebar) {
+        backdrop.addEventListener('click', () => {
+          sidebar.classList.remove('open');
+          backdrop.classList.remove('open');
+        });
+      }
     }
 
     // -------------------------------------------------
     // STATS UPDATE
     // -------------------------------------------------
     function updateDashboardStats() {
-      // Simulate energy generation data
       const solarPower = parseFloat(document.getElementById('predictedPower')?.textContent || 0);
       const windPower = parseFloat(document.getElementById('windPower')?.textContent || 8.3);
       const totalGen = (solarPower + windPower).toFixed(1);
       
-      document.getElementById('totalGeneration').textContent = totalGen;
-      document.getElementById('generationMeter').style.width = `${Math.min(100, totalGen * 10)}%`;
+      const totalGenEl = document.getElementById('totalGeneration');
+      if (totalGenEl) totalGenEl.textContent = totalGen;
+      const genMeter = document.getElementById('generationMeter');
+      if (genMeter) genMeter.style.width = `${Math.min(100, totalGen * 10)}%`;
       
-      // Active offers count
       const offersContainer = document.getElementById('offersContainer');
-      const offerCount = offersContainer.querySelectorAll('tbody tr').length || 0;
-      document.getElementById('activeOffers').textContent = offerCount;
+      const offerCount = offersContainer ? (offersContainer.querySelectorAll('tbody tr').length || 0) : 0;
+      const activeOffersEl = document.getElementById('activeOffers');
+      if (activeOffersEl) activeOffersEl.textContent = offerCount;
       
-      // Total revenue from accepted offers
       let totalRevenue = 0;
       acceptedOffers.forEach(offer => {
         totalRevenue += parseFloat(offer.price || 0);
       });
-      document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(3);
+      const totalRevEl = document.getElementById('totalRevenue');
+      if (totalRevEl) totalRevEl.textContent = totalRevenue.toFixed(3);
       
-      // Battery simulation - oscillate between 70-85%
       const battery = 70 + Math.sin(Date.now() / 10000) * 15;
-      document.getElementById('batteryLevel').textContent = Math.round(battery);
-      document.getElementById('batteryMeter').style.width = `${battery}%`;
+      const batEl = document.getElementById('batteryLevel');
+      if (batEl) batEl.textContent = Math.round(battery);
+      const batMeter = document.getElementById('batteryMeter');
+      if (batMeter) batMeter.style.width = `${battery}%`;
     }
 
     // -------------------------------------------------
     // WIND ENERGY SIMULATION
     // -------------------------------------------------
     function updateWindData() {
-      // Simulate wind data
       const windSpeed = (10 + Math.random() * 5).toFixed(1);
       const windPower = (windSpeed * 0.7).toFixed(1);
       const efficiency = Math.round(82 + Math.random() * 10);
       
-      document.getElementById('windSpeed').textContent = windSpeed;
-      document.getElementById('windPower').textContent = windPower;
-      document.getElementById('windEfficiency').textContent = efficiency;
+      const wsEl = document.getElementById('windSpeed');
+      if (wsEl) wsEl.textContent = windSpeed;
+      const wpEl = document.getElementById('windPower');
+      if (wpEl) wpEl.textContent = windPower;
+      const weEl = document.getElementById('windEfficiency');
+      if (weEl) weEl.textContent = efficiency;
     }
 
-    // Start wind simulation
     setInterval(updateWindData, 5000);
     updateWindData();
 
@@ -896,7 +1497,6 @@
     function calculateTimeFeatures(dateTime) {
       const hour = dateTime.getHours();
       const minute = dateTime.getMinutes();
-      
       return {
         hour_sin: Math.sin(2 * Math.PI * hour / 24),
         hour_cos: Math.cos(2 * Math.PI * hour / 24),
@@ -911,20 +1511,19 @@
       const ambientTemp = parseFloat(document.getElementById("solarAmbient").value);
       const moduleTemp = parseFloat(document.getElementById("solarModule").value);
 
-      // Validation
       if (!dateTimeInput || isNaN(irradiation) || isNaN(ambientTemp) || isNaN(moduleTemp)) {
-        showToast("Please fill in all solar prediction fields", "error");
+        showToast("Please complete all solar prediction fields", "error");
         return;
       }
 
       if (irradiation < 0 || irradiation > 1500) {
-        showToast("Irradiation should be between 0-1500 W/m²", "warning");
+        showToast("Irradiation recommended between 0-1500 W/m²", "warning");
       }
 
       const btn = document.getElementById("predictBtn");
       const txt = document.getElementById("predictText");
       const spin = document.getElementById("predictSpinner");
-      txt.textContent = "Predicting...";
+      txt.textContent = "Calculating…";
       spin.classList.remove("hidden");
       btn.disabled = true;
 
@@ -932,29 +1531,14 @@
         const dateTime = new Date(dateTimeInput);
         const timeFeatures = calculateTimeFeatures(dateTime);
 
-        // Local estimate retained until a trained backend model endpoint is integrated.
-        const features = {
-          IRRADIATION: irradiation,
-          AMBIENT_TEMPERATURE: ambientTemp,
-          MODULE_TEMPERATURE: moduleTemp,
-          hour_sin: timeFeatures.hour_sin,
-          hour_cos: timeFeatures.hour_cos,
-          minute_sin: timeFeatures.minute_sin,
-          minute_cos: timeFeatures.minute_cos
-        };
-
-        // Simple heuristic model
         let predictedPower = (irradiation / 1000) * 5 * 
                             (1 - (moduleTemp - 25) * 0.004) * 
                             (1 + (ambientTemp - 25) * 0.002);
         
-        // Add time-based variation
         const hourEffect = (timeFeatures.hour_cos + 1) / 2;
         predictedPower *= hourEffect;
-        
         predictedPower = Math.max(0, predictedPower).toFixed(2);
 
-        // Display results
         document.getElementById("predictedPower").textContent = predictedPower;
         document.getElementById("resultIrradiation").textContent = irradiation.toFixed(2);
         document.getElementById("resultAmbient").textContent = ambientTemp.toFixed(1);
@@ -966,7 +1550,7 @@
         updateDashboardStats();
       } catch (e) {
         console.error("Prediction error:", e);
-        showToast("Prediction failed. Please check your inputs.", "error");
+        showToast("Prediction calculation failed.", "error");
       } finally {
         txt.textContent = "Predict AC Power";
         spin.classList.add("hidden");
@@ -983,26 +1567,146 @@
       document.getElementById("solarAmbient").value = "28.5";
       document.getElementById("solarModule").value = "45.2";
       
-      showToast("Sample data filled. Click 'Predict AC Power' to see results.", "success");
+      showToast("Sample data populated.", "success");
     }
 
-    // Event listeners for solar prediction
     document.getElementById("predictBtn").addEventListener("click", predictSolarPower);
     document.getElementById("fillSampleBtn").addEventListener("click", fillSampleData);
 
     // -------------------------------------------------
-    // LOAD CONTRACT ADDRESS
+    // ENERGY CONSUMPTION PREDICTION
+    // -------------------------------------------------
+    function setConsumptionError(message = "") {
+      const error = document.getElementById("consumptionError");
+      error.textContent = message;
+      error.classList.toggle("hidden", !message);
+    }
+
+    function resetConsumptionPrediction() {
+      document.getElementById("consumptionForm").reset();
+      document.getElementById("consumptionTimestamp").value = new Date().toISOString().slice(0, 16);
+      document.getElementById("consumptionResult").classList.add("hidden");
+      setConsumptionError();
+      if (consumptionChart) {
+        consumptionChart.destroy();
+        consumptionChart = null;
+      }
+    }
+
+    function renderConsumptionChart(timestamp, value, unit) {
+      const canvas = document.getElementById("consumptionPredictionChart");
+      if (!canvas) return;
+      if (consumptionChart) consumptionChart.destroy();
+      consumptionChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: [new Date(timestamp).toLocaleString()],
+          datasets: [{
+            label: `Predicted consumption (${unit})`,
+            data: [value],
+            backgroundColor: "rgba(63, 185, 80, 0.25)",
+            borderColor: "#3FB950",
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: CHART_THEME.gridColor },
+              ticks: { color: CHART_THEME.textColor, font: { family: CHART_THEME.monoFamily } },
+              title: { display: true, text: unit, color: CHART_THEME.textColor }
+            },
+            x: {
+              grid: { color: CHART_THEME.gridColor },
+              ticks: { color: CHART_THEME.textColor }
+            }
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+    }
+
+    document.getElementById("consumptionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const timestamp = document.getElementById("consumptionTimestamp").value;
+      const payload = {
+        timestamp,
+        temperature: Number(document.getElementById("consumptionTemperature").value),
+        humidity: Number(document.getElementById("consumptionHumidity").value),
+        squareFootage: Number(document.getElementById("consumptionSquareFootage").value),
+        occupancy: Number(document.getElementById("consumptionOccupancy").value),
+        hvacUsage: document.getElementById("consumptionHvacUsage").value,
+        lightingUsage: document.getElementById("consumptionLightingUsage").value,
+        renewableEnergy: Number(document.getElementById("consumptionRenewableEnergy").value),
+        dayOfWeek: document.getElementById("consumptionDayOfWeek").value,
+        holiday: document.getElementById("consumptionHoliday").value,
+      };
+      const numericFields = ["temperature", "humidity", "squareFootage", "occupancy", "renewableEnergy"];
+      const numericInputs = ["consumptionTemperature", "consumptionHumidity", "consumptionSquareFootage", "consumptionOccupancy", "consumptionRenewableEnergy"];
+      if (!timestamp || numericInputs.some((id) => document.getElementById(id).value.trim() === "") || numericFields.some((field) => !Number.isFinite(payload[field])) || !payload.hvacUsage || !payload.lightingUsage || !payload.dayOfWeek || !payload.holiday) {
+        setConsumptionError("Complete every field with a valid value before predicting.");
+        return;
+      }
+      if (payload.humidity < 0 || payload.humidity > 100 || payload.squareFootage <= 0 || payload.occupancy < 0 || payload.renewableEnergy < 0) {
+        setConsumptionError("Use humidity from 0–100 and positive occupancy/renewable values.");
+        return;
+      }
+
+      const button = document.getElementById("consumptionPredictBtn");
+      const text = document.getElementById("consumptionPredictText");
+      const spinner = document.getElementById("consumptionPredictSpinner");
+      setConsumptionError();
+      button.disabled = true;
+      text.textContent = "Predicting…";
+      spinner.classList.remove("hidden");
+
+      try {
+        const response = await fetch("/api/energy-consumption/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.error || "Energy consumption prediction failed.");
+
+        const value = Number(result.prediction.energyConsumption);
+        const unit = result.prediction.unit || "dataset-defined unit";
+        document.getElementById("consumptionPredictionValue").textContent = value.toFixed(4);
+        document.getElementById("consumptionPredictionUnit").textContent = unit;
+        document.getElementById("consumptionModelName").textContent = `Model: ${result.model}`;
+        const warning = document.getElementById("consumptionWarning");
+        warning.textContent = (result.warnings || []).join(" ");
+        warning.classList.toggle("hidden", !(result.warnings || []).length);
+        document.getElementById("consumptionResult").classList.remove("hidden");
+        renderConsumptionChart(timestamp, value, unit);
+        showToast("Energy consumption prediction completed.", "success");
+      } catch (error) {
+        setConsumptionError(error.message || "Energy consumption prediction failed.");
+        showToast(error.message || "Energy consumption prediction failed.", "error");
+      } finally {
+        button.disabled = false;
+        text.textContent = "Predict consumption";
+        spinner.classList.add("hidden");
+      }
+    });
+
+    document.getElementById("consumptionResetBtn").addEventListener("click", resetConsumptionPrediction);
+
+    // -------------------------------------------------
+    // LOAD CONTRACT CONFIG
     // -------------------------------------------------
     async function loadConfig() {
       if (!window.ethereum) {
-        throw new Error("MetaMask was not detected. Install or unlock the MetaMask browser extension.");
+        throw new Error("MetaMask not detected. Please install or unlock MetaMask.");
       }
 
       const network = CONFIG.networks[CONFIG.requiredChainId];
       let chainId = await window.ethereum.request({ method: 'eth_chainId' });
 
-      // A browser wallet signs the marketplace transactions, so it must use
-      // the network on which the configured EnergyOffer contract is deployed.
       if (chainId.toLowerCase() !== CONFIG.requiredChainId) {
         showToast("Switching MetaMask to Sepolia Testnet…", "warning");
         try {
@@ -1039,22 +1743,37 @@
       }
 
       let config;
+      let historyConfig = {};
       try {
         const response = await fetch('/config/contract_address.json');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         config = await response.json();
+
+        const historyResponse = await fetch('/config/contract_history.json');
+        if (historyResponse.ok) historyConfig = await historyResponse.json();
       } catch (e) {
-        throw new Error('The deployed-contract configuration could not be loaded.');
+        throw new Error('Deployed contract configuration could not be loaded.');
       }
 
       const chainIdDec = parseInt(chainId, 16);
       const CONTRACT_ADDRESS = config[chainIdDec] || config[chainId];
-      if (!CONTRACT_ADDRESS) {
-        throw new Error(`No EnergyOffer contract is configured for ${network.name}.`);
+      if (!CONTRACT_ADDRESS || !ethers.isAddress(CONTRACT_ADDRESS)) {
+        throw new Error(`No EnergyOffer contract configured for ${network.name}.`);
       }
 
+      const readProvider = new ethers.BrowserProvider(window.ethereum);
+      const deployedCode = await readProvider.getCode(CONTRACT_ADDRESS);
+      if (deployedCode === "0x") {
+        throw new Error(`No contract bytecode found at the configured ${network.name} address.`);
+      }
+
+      const legacyContracts = historyConfig[chainIdDec]?.legacyContracts || [];
+      const legacyEntry = legacyContracts.find((entry) =>
+        ethers.isAddress(entry.address) && entry.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
+      );
+
       console.log(`Connected to ${network.name}: ${CONTRACT_ADDRESS}`);
-      return { CONTRACT_ADDRESS, network };
+      return { CONTRACT_ADDRESS, network, legacyEntry };
     }
 
     // -------------------------------------------------
@@ -1076,6 +1795,7 @@
 
     function showToast(message, type = "success") {
       const toast = document.getElementById("toast");
+      if (!toast) return;
       toast.innerHTML = message;
       toast.className = `toast toast-${type} show`;
       setTimeout(() => {
@@ -1083,17 +1803,29 @@
       }, 3000);
     }
 
+    function marketplaceErrorMessage(error, fallback) {
+      const message = String(
+        error?.reason || error?.info?.error?.message || error?.shortMessage || error?.message || ""
+      );
+      if (/user rejected|user denied|action_rejected/i.test(message)) return "Transaction rejected in MetaMask.";
+      if (/insufficient funds|insufficient balance/i.test(message)) return "Insufficient Sepolia ETH for price and gas.";
+      if (/Cannot accept own offer/i.test(message)) return "You cannot accept an offer created by your own wallet.";
+      if (/Offer not active|Offer already inactive/i.test(message)) return "Offer is no longer active. Refresh listings.";
+      if (/Incorrect payment/i.test(message)) return "Contract rejected payment amount. Refresh and try again.";
+      if (/revert|call exception|missing revert data/i.test(message)) {
+        return "Contract rejected offer preflight simulation.";
+      }
+      return fallback;
+    }
+
     function validateForm() {
-      const name = document.getElementById("userName").value.trim();
-      const price = parseFloat(document.getElementById("priceEth").value);
+      const name = document.getElementById("userName")?.value.trim();
+      const price = parseFloat(document.getElementById("priceEth")?.value);
       const nameError = document.getElementById("userNameError");
       const priceError = document.getElementById("priceEthError");
       let valid = true;
 
-      if (!nameError || !priceError) {
-        console.error("Form elements not found");
-        return false;
-      }
+      if (!nameError || !priceError) return false;
 
       if (!name) {
         nameError.classList.remove("hidden");
@@ -1113,12 +1845,15 @@
         document.getElementById("priceEth").classList.remove("invalid");
       }
 
-      document.getElementById("createOfferBtn").disabled = !valid || !hasConnected;
+      const createBtn = document.getElementById("createOfferBtn");
+      if (createBtn) {
+        createBtn.disabled = !valid || !hasConnected || marketplaceIsHistorical;
+      }
       return valid;
     }
 
     // -------------------------------------------------
-    // LOGIN CHECK
+    // AUTHENTICATED SESSION INIT
     // -------------------------------------------------
     document.addEventListener("DOMContentLoaded", async () => {
       const isLoggedIn = sessionStorage.getItem("isLoggedIn") === "true";
@@ -1126,21 +1861,32 @@
       const userEmail = sessionStorage.getItem("userEmail");
 
       if (!isLoggedIn || !userName || !userEmail) {
-        showToast("Please log in.", "error");
+        showToast("Please log in to continue.", "error");
         window.location.href = "login.html";
         return;
       }
 
       document.getElementById("profileName").textContent = userName;
       document.getElementById("profileEmail").textContent = userEmail;
-      document.getElementById("userName").value = userName;
+      if (document.getElementById("profileAvatar")) {
+        document.getElementById("profileAvatar").textContent = userName.slice(0, 1).toUpperCase();
+      }
+      if (document.getElementById("profileNameOverview")) {
+        document.getElementById("profileNameOverview").textContent = userName;
+      }
+      if (document.getElementById("profileEmailOverview")) {
+        document.getElementById("profileEmailOverview").textContent = userEmail;
+      }
+
+      const userNameInput = document.getElementById("userName");
+      if (userNameInput) userNameInput.value = userName;
       userHash = hashUsername(userName);
 
-      // Set current date/time for solar prediction
       const now = new Date();
-      document.getElementById("solarDateTime").value = now.toISOString().slice(0, 16);
+      const nowIso = now.toISOString().slice(0, 16);
+      if (document.getElementById("solarDateTime")) document.getElementById("solarDateTime").value = nowIso;
+      if (document.getElementById("consumptionTimestamp")) document.getElementById("consumptionTimestamp").value = nowIso;
 
-      // Initialize tabs
       initTabs();
       updateBookingAccess();
 
@@ -1148,89 +1894,237 @@
         initializeCharts();
         updateAcceptedList();
       } else {
-        showToast("Failed to load Chart.js. Visualizations disabled.", "error");
+        showToast("Chart.js unavailable. Visualizations paused.", "error");
         updateAcceptedList();
       }
 
-      // Start stats update interval
       setInterval(updateDashboardStats, 3000);
       updateDashboardStats();
     });
 
     // -------------------------------------------------
-    // CONNECT WALLET
+    // PERMANENT WALLET BINDING
     // -------------------------------------------------
+    function walletLabel(address) {
+      if (!address) return "Not connected";
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    function currentWebsiteUserKey() {
+      const email = sessionStorage.getItem("userEmail");
+      if (!email) throw new Error("Sign in before connecting wallet.");
+      return email.trim().toLowerCase();
+    }
+
+    function readWalletBindings() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(WALLET_BINDINGS_STORAGE_KEY) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function assertWalletBinding(address) {
+      const websiteUser = currentWebsiteUserKey();
+      const wallet = ethers.getAddress(address);
+      const bindings = readWalletBindings();
+      const boundWallet = bindings[websiteUser];
+      const ownerOfWallet = Object.entries(bindings).find(([user, boundAddress]) =>
+        user !== websiteUser &&
+        typeof boundAddress === "string" &&
+        boundAddress.toLowerCase() === wallet.toLowerCase()
+      );
+
+      if (ownerOfWallet) {
+        throw new Error("This MetaMask account is permanently linked to another user.");
+      }
+      if (boundWallet && boundWallet.toLowerCase() !== wallet.toLowerCase()) {
+        throw new Error(`This account is bound to ${walletLabel(boundWallet)}. Switch MetaMask to continue.`);
+      }
+      return wallet;
+    }
+
+    function storeWalletBinding(address) {
+      const websiteUser = currentWebsiteUserKey();
+      const bindings = readWalletBindings();
+      const wallet = ethers.getAddress(address);
+      bindings[websiteUser] = wallet;
+      localStorage.setItem(WALLET_BINDINGS_STORAGE_KEY, JSON.stringify(bindings));
+      return wallet;
+    }
+
+    async function persistWalletBinding(address) {
+      const token = sessionStorage.getItem("authToken");
+      if (!token || token.startsWith("web3-jwt-")) return;
+
+      let response;
+      try {
+        response = await fetch("/auth/wallet", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ walletAddress: address }),
+        });
+      } catch {
+        throw new Error("Wallet-binding service unreachable.");
+      }
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.msg || "Wallet cannot be linked to this account.");
+    }
+
+    function updateConnectedWalletUi() {
+      const shortAddr = walletLabel(userAddress);
+      const accountDisplay = document.getElementById("accountDisplay");
+      if (accountDisplay) accountDisplay.textContent = `Bound: ${userAddress}`;
+      const profileWallet = document.getElementById("profileWallet");
+      if (profileWallet) profileWallet.textContent = userAddress;
+
+      const headerWalletStatus = document.getElementById("headerWalletStatus");
+      if (headerWalletStatus) {
+        headerWalletStatus.classList.add("is-connected");
+        headerWalletStatus.innerHTML = `<span class="status-dot"></span>${shortAddr}`;
+      }
+
+      const btn = document.getElementById("connectBtn");
+      if (btn) {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1.5 text-[var(--accent-primary-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="font-mono">${shortAddr}</span>`;
+        btn.classList.add("is-connected");
+        btn.disabled = false;
+      }
+    }
+
+    async function bindWalletAccount(address) {
+      if (!provider || !activeContractAddress) throw new Error("Wallet connection not initialized.");
+      const requestedAddress = assertWalletBinding(address);
+      signer = await provider.getSigner(requestedAddress);
+      userAddress = await signer.getAddress();
+      if (userAddress.toLowerCase() !== requestedAddress.toLowerCase()) {
+        throw new Error("MetaMask returned a different account. Select intended account.");
+      }
+      await persistWalletBinding(userAddress);
+      storeWalletBinding(userAddress);
+      contract = new ethers.Contract(activeContractAddress, CONTRACT_ABI, signer);
+      hasConnected = true;
+      updateConnectedWalletUi();
+      const createOfferBtn = document.getElementById("createOfferBtn");
+      if (createOfferBtn) {
+        createOfferBtn.disabled = marketplaceIsHistorical || !validateForm();
+      }
+      return contract;
+    }
+
+    async function ensureCurrentWalletSigner() {
+      if (!provider) throw new Error("Connect MetaMask before using marketplace.");
+      const accounts = await provider.send("eth_accounts", []);
+      if (!accounts.length) throw new Error("No connected MetaMask account.");
+      const currentAddress = ethers.getAddress(accounts[0]);
+      if (!userAddress || currentAddress.toLowerCase() !== userAddress.toLowerCase()) {
+        await bindWalletAccount(currentAddress);
+      }
+      return contract;
+    }
+
+    function clearWalletConnection() {
+      clearInterval(pollInterval);
+      signer = undefined;
+      contract = undefined;
+      userAddress = undefined;
+      hasConnected = false;
+      hasRequested = false;
+      const createBtn = document.getElementById("createOfferBtn");
+      if (createBtn) createBtn.disabled = true;
+
+      const btn = document.getElementById("connectBtn");
+      if (btn) {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>Connect Wallet`;
+        btn.classList.remove("is-connected");
+        btn.disabled = false;
+      }
+
+      const headerWalletStatus = document.getElementById("headerWalletStatus");
+      if (headerWalletStatus) {
+        headerWalletStatus.classList.remove("is-connected");
+        headerWalletStatus.innerHTML = "<span class='status-dot'></span>Wallet not connected";
+      }
+      const accountDisplay = document.getElementById("accountDisplay");
+      if (accountDisplay) accountDisplay.textContent = "";
+      const profileWallet = document.getElementById("profileWallet");
+      if (profileWallet) profileWallet.textContent = "-";
+    }
+
     async function connectWallet() {
       if (hasRequested || hasConnected) return;
 
       hasRequested = true;
       const btn = document.getElementById("connectBtn");
-      btn.textContent = "Connecting...";
-      btn.disabled = true;
+      if (btn) {
+        btn.textContent = "Connecting…";
+        btn.disabled = true;
+      }
 
       try {
-        if (!window.ethereum) throw new Error("Install MetaMask!");
+        if (!window.ethereum) throw new Error("Please install MetaMask.");
 
         const config = await loadConfig();
-        if (!config) throw new Error("Network error");
+        if (!config) throw new Error("Network configuration failed.");
 
         provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.send("eth_requestAccounts", []);
-        if (!accounts.length) throw new Error("No account");
+        if (!accounts.length) throw new Error("No accounts approved.");
 
-        signer = await provider.getSigner();
-        userAddress = await signer.getAddress();
-        contract = new ethers.Contract(config.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        activeContractAddress = config.CONTRACT_ADDRESS;
+        marketplaceIsHistorical = Boolean(config.legacyEntry);
+        const unInput = document.getElementById("userName");
+        if (unInput) unInput.disabled = marketplaceIsHistorical;
+        const peInput = document.getElementById("priceEth");
+        if (peInput) peInput.disabled = marketplaceIsHistorical;
 
-        const shortAddr = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        document.getElementById("accountDisplay").textContent = `Connected: ${shortAddr}`;
-        document.getElementById("profileWallet").textContent = shortAddr;
-        const headerWalletStatus = document.getElementById("headerWalletStatus");
-        headerWalletStatus.classList.add("is-connected");
-        headerWalletStatus.innerHTML = `<span class="status-dot"></span>${shortAddr}`;
-
-        btn.innerHTML = `
-          <svg class="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
-          </svg>
-          Connected
-        `;
-        btn.classList.remove("btn-glow");
-        document.getElementById("createOfferBtn").disabled = !validateForm();
-        hasConnected = true;
-
+        await bindWalletAccount(accounts[0]);
+        await loadHistoricalOffers(config.legacyEntry?.snapshot);
         await loadOffers();
-        listenForAccepts();
-        listenForCreates();
-        startPolling();
+
+        if (!marketplaceIsHistorical) {
+          listenForAccepts();
+          listenForCreates();
+          startPolling();
+        } else {
+          showToast("Legacy marketplace is preserved as audit history.", "warning");
+        }
         updateDashboardStats();
       } catch (e) {
         console.error(e);
-        if (e.code === -32002) {
-          showToast("MetaMask is busy. Check popup, refresh, and click Connect ONCE.", "error");
-        } else {
-          showToast(e.message || "Connection failed", "error");
+        showToast(e.message || "Connection failed.", "error");
+        if (btn) {
+          btn.textContent = "Connect Wallet";
+          btn.disabled = false;
         }
-        btn.textContent = "Try Again";
-        btn.disabled = false;
         hasRequested = false;
-        const headerWalletStatus = document.getElementById("headerWalletStatus");
-        headerWalletStatus.classList.remove("is-connected");
-        headerWalletStatus.innerHTML = "<span class='status-dot'></span>Wallet not connected";
       }
     }
 
     document.getElementById("connectBtn").addEventListener("click", connectWallet);
 
-    window.addEventListener("load", () => {
-      if (window.ethereum?.selectedAddress && !hasConnected && !hasRequested) {
-        setTimeout(connectWallet, 800);
+    window.ethereum?.on("accountsChanged", async (accounts) => {
+      if (!accounts.length) {
+        clearWalletConnection();
+        showToast("MetaMask account disconnected.", "warning");
+        return;
       }
-    });
-
-    window.ethereum?.on("accountsChanged", () => {
-      clearInterval(pollInterval);
-      window.location.reload();
+      if (!activeContractAddress) return;
+      try {
+        await bindWalletAccount(accounts[0]);
+        await loadOffers();
+        updateDashboardStats();
+        showToast(`Active wallet: ${walletLabel(userAddress)}`, "success");
+      } catch (error) {
+        console.error("MetaMask account switch error:", error);
+        clearWalletConnection();
+        showToast(error.message || "Could not switch to selected wallet.", "error");
+      }
     });
 
     window.ethereum?.on("chainChanged", () => {
@@ -1252,19 +2146,20 @@
       const btn = document.getElementById("createOfferBtn");
       const txt = document.getElementById("createText");
       const spin = document.getElementById("createSpinner");
-      txt.textContent = "Sending…";
+      txt.textContent = "Broadcasting…";
       spin.classList.remove("hidden");
       btn.disabled = true;
 
       try {
-        const tx = await contract.createOffer(userHashLocal, priceWei);
+        const activeContract = await ensureCurrentWalletSigner();
+        const tx = await activeContract.createOffer(userHashLocal, priceWei);
         await tx.wait();
-        showToast(`Offer created! Tx: <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" class="underline">View</a>`, "success");
+        showToast(`Offer created! <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" class="underline text-[var(--accent-wind)]">Tx Receipt</a>`, "success");
         document.getElementById("priceEth").value = "";
         await loadOffers();
         updateDashboardStats();
       } catch (e) {
-        console.error("createOffer failed", e);
+        console.error("createOffer failed:", e);
         showToast(e.reason || e.message || "Transaction failed", "error");
       } finally {
         txt.textContent = "Create Offer";
@@ -1279,27 +2174,62 @@
     // -------------------------------------------------
     // LOAD OFFERS
     // -------------------------------------------------
+    async function loadHistoricalOffers(snapshotPath) {
+      const container = document.getElementById("historicalOffersContainer");
+      if (!container) return;
+      try {
+        const response = await fetch(snapshotPath || "/config/legacy_sepolia_energyoffer_snapshot.json");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const snapshot = await response.json();
+        historicalOffers = Array.isArray(snapshot.offers) ? snapshot.offers : [];
+
+        if (!historicalOffers.length) {
+          container.innerHTML = "<div class='empty-state'>No preserved legacy offers available.</div>";
+          return;
+        }
+
+        const rows = historicalOffers.map((offer) => {
+          const status = offer.active ? "Active at audit" : "Inactive at audit";
+          const created = new Date(Number(offer.timestamp) * 1000).toLocaleString();
+          const seller = offer.sellerAddress || "Unavailable";
+          return `<tr>
+            <td><span class="table-id">Legacy #${escapeHtml(offer.offerId)}</span></td>
+            <td class="font-mono text-xs text-[var(--text-primary)]">${escapeHtml(seller)}</td>
+            <td class="text-xs text-[var(--text-muted)]">${escapeHtml(created)}</td>
+            <td class="numeric font-mono font-semibold text-[var(--text-primary)]">${escapeHtml(offer.priceEth)} ETH</td>
+            <td><span class="status-badge ${offer.active ? "status-pending" : "status-cancelled"}">${escapeHtml(status)}</span></td>
+            <td class="actions"><span class="text-xs text-[var(--text-muted)]">Historical only</span></td>
+          </tr>`;
+        }).join("");
+        container.innerHTML = `<div class="table-shell"><table class="data-table"><thead><tr><th>Offer ID</th><th>Seller wallet</th><th>Created</th><th class="numeric">Price</th><th>Status</th><th class="actions">Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      } catch (error) {
+        console.error("loadHistoricalOffers error:", error);
+        container.innerHTML = "<div class='empty-state'>Historical snapshot unavailable.</div>";
+      }
+    }
+
     async function loadOffers() {
       const container = document.getElementById("offersContainer");
-      container.innerHTML = "<p class='text-gray-500 text-center'>Loading…</p>";
+      if (!container) return;
+      container.innerHTML = "<p class='loading-state'>Loading on-chain listings…</p>";
 
       if (!contract) {
-        container.innerHTML = "<p class='text-gray-500 text-center'>Connect wallet.</p>";
+        container.innerHTML = "<div class='empty-state'>Connect MetaMask to load active marketplace listings.</div>";
+        return;
+      }
+
+      if (marketplaceIsHistorical) {
+        container.innerHTML = "<div class='empty-state'><strong>Marketplace paused.</strong> Preserved as audit records below.</div>";
+        if (priceChart) updatePriceChart([]);
         return;
       }
 
       try {
         const showAll = document.getElementById("showAllToggle").checked;
         const sortBy = document.getElementById("sortOffers").value;
-        let offerIds = [];
-
-        if (showAll) {
-          const countBN = await contract.getOfferCount();
-          const count = Number(countBN);
-          offerIds = Array.from({ length: count }, (_, i) => i);
-        } else {
-          offerIds = await contract.getActiveUserOfferIds(userHash);
-        }
+        const countBN = await contract.getOfferCount();
+        const count = Number(countBN);
+        const offerIds = Array.from({ length: count }, (_, i) => i);
 
         const offers = [];
         for (let i of offerIds) {
@@ -1308,34 +2238,41 @@
           const priceWei = offerRaw[1];
           const ts = offerRaw[2];
           const active = offerRaw[3];
+          const sellerAddress = await contract.getOwnerAddress(i);
 
           if (!active) continue;
 
           offers.push({
             id: i,
             userHash: uHash,
-            priceEth: parseFloat(ethers.formatEther(priceWei)),
+            sellerAddress,
+            priceEth: ethers.formatEther(priceWei),
             timestamp: Number(ts) * 1000,
             date: new Date(Number(ts) * 1000).toLocaleString()
           });
         }
 
         offers.sort((a, b) => {
-          if (sortBy === "priceAsc") return a.priceEth - b.priceEth;
-          if (sortBy === "priceDesc") return b.priceEth - a.priceEth;
+          if (sortBy === "priceAsc") return Number(a.priceEth) - Number(b.priceEth);
+          if (sortBy === "priceDesc") return Number(b.priceEth) - Number(a.priceEth);
           if (sortBy === "dateDesc") return b.timestamp - a.timestamp;
           return a.id - b.id;
         });
 
+        const walletScopedOffers = showAll
+          ? offers
+          : offers.filter((offer) => offer.sellerAddress.toLowerCase() === userAddress.toLowerCase());
         const searchTerm = document.getElementById("offerSearch").value.trim().toLowerCase();
-        const visibleOffers = offers.filter((offer) => {
-          const isMine = offer.userHash === userHash;
-          const displayName = isMine ? sessionStorage.getItem("userName") : (String(offer.userHash).slice(0, 10) + "...");
+        const visibleOffers = walletScopedOffers.filter((offer) => {
+          const isMine = offer.sellerAddress.toLowerCase() === userAddress.toLowerCase();
+          const displayName = isMine
+            ? `${sessionStorage.getItem("userName")} (${walletLabel(offer.sellerAddress)})`
+            : offer.sellerAddress;
           return !searchTerm || String(offer.id).includes(searchTerm) || String(displayName).toLowerCase().includes(searchTerm);
         });
 
         if (!visibleOffers.length) {
-          container.innerHTML = `<div class="empty-state">${offers.length ? "No active offers match this search." : "No active offers are available yet."}</div>`;
+          container.innerHTML = `<div class="empty-state">${offers.length ? "No active offers match this filter." : "No active offers available currently."}</div>`;
         } else {
           const shell = document.createElement("div");
           shell.className = "table-shell";
@@ -1345,10 +2282,16 @@
           const tbody = document.createElement("tbody");
 
           for (const offer of visibleOffers) {
-            const isMine = offer.userHash === userHash;
-            const displayName = isMine ? sessionStorage.getItem("userName") : (String(offer.userHash).slice(0, 10) + "...");
+            const isMine = offer.sellerAddress.toLowerCase() === userAddress.toLowerCase();
+            const displayName = isMine
+              ? `${sessionStorage.getItem("userName")} (${walletLabel(offer.sellerAddress)})`
+              : offer.sellerAddress;
             const row = document.createElement("tr");
-            row.innerHTML = `<td><span class="table-id">#${escapeHtml(offer.id)}</span></td><td><span class="font-medium">${escapeHtml(displayName)}</span></td><td class="text-gray-600">${escapeHtml(offer.date)}</td><td class="numeric font-semibold">${escapeHtml(offer.priceEth)} ETH</td><td class="actions"></td>`;
+            row.innerHTML = `<td><span class="table-id">#${escapeHtml(offer.id)}</span></td>
+            <td><span class="font-mono text-xs text-[var(--text-primary)] font-medium">${escapeHtml(displayName)}</span></td>
+            <td class="text-xs text-[var(--text-muted)]">${escapeHtml(offer.date)}</td>
+            <td class="numeric font-mono font-semibold text-[var(--text-primary)]">${escapeHtml(offer.priceEth)} ETH</td>
+            <td class="actions"></td>`;
 
             const actionCell = row.querySelector(".actions");
             const btn = document.createElement("button");
@@ -1363,28 +2306,45 @@
                 const id = Number(ev.currentTarget.dataset.id);
                 if (!confirm(`Cancel offer #${id}?`)) return;
                 try {
-                  const tx = await contract.cancelOffer(id);
+                  const activeContract = await ensureCurrentWalletSigner();
+                  const currentOwner = await activeContract.getOwnerAddress(id);
+                  if (currentOwner.toLowerCase() !== userAddress.toLowerCase()) {
+                    throw new Error("Active wallet does not own this offer.");
+                  }
+                  const tx = await activeContract.cancelOffer(id);
                   await tx.wait();
-                  showToast(`Offer cancelled! Tx: <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" class="underline">View</a>`, "success");
+                  showToast(`Offer #${id} cancelled. <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" class="underline text-[var(--accent-wind)]">Receipt</a>`, "success");
                   await loadOffers();
                   updateDashboardStats();
                 } catch (err) {
-                  console.error("cancelOffer failed", err);
+                  console.error("cancelOffer error:", err);
                   showToast(err.reason || err.message || "Cancel failed", "error");
                 }
               });
             } else {
               btn.classList.add("table-action--accept");
-              btn.innerHTML = `<span>Accept</span><span class="hidden ml-2"><svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>`;
+              btn.innerHTML = `<span>Accept</span><span class="hidden ml-1.5" aria-hidden="true">●</span>`;
               btn.dataset.price = offer.priceEth;
               btn.dataset.sellerhash = offer.userHash;
+              btn.dataset.selleraddress = offer.sellerAddress;
               btn.addEventListener("click", async (ev) => {
                 const id = Number(ev.currentTarget.dataset.id);
                 const priceStr = ev.currentTarget.dataset.price;
                 const sellerHash = ev.currentTarget.dataset.sellerhash;
+                const sellerAddress = ev.currentTarget.dataset.selleraddress;
                 const sellerName = getNameFromHash(sellerHash);
 
-                if (!confirm(`Accept from ${sellerName} for ${priceStr} ETH?`)) return;
+                try {
+                  await ensureCurrentWalletSigner();
+                  if (sellerAddress.toLowerCase() === userAddress.toLowerCase()) {
+                    throw new Error("Cannot accept own offer");
+                  }
+                } catch (error) {
+                  showToast(marketplaceErrorMessage(error, "Could not verify wallet."), "error");
+                  return;
+                }
+
+                if (!confirm(`Accept from ${sellerName} (${walletLabel(sellerAddress)}) for ${priceStr} ETH?`)) return;
 
                 const txt = ev.currentTarget.querySelector("span:first-child");
                 const spin = ev.currentTarget.querySelector("span:last-child");
@@ -1393,15 +2353,29 @@
                 ev.currentTarget.disabled = true;
 
                 try {
-                  const value = ethers.parseEther(String(priceStr));
-                  const tx = await contract.acceptOffer(id, { value });
+                  const activeContract = await ensureCurrentWalletSigner();
+                  const value = ethers.parseEther(priceStr);
+                  if (sellerAddress.toLowerCase() === userAddress.toLowerCase()) {
+                    throw new Error("Cannot accept own offer");
+                  }
+                  const balance = await provider.getBalance(userAddress);
+
+                  await activeContract.acceptOffer.staticCall(id, { value });
+                  const gasEstimate = await activeContract.acceptOffer.estimateGas(id, { value });
+                  const feeData = await provider.getFeeData();
+                  const gasPrice = feeData.maxFeePerGas || feeData.gasPrice;
+                  const requiredBalance = value + (gasPrice ? gasEstimate * gasPrice : 0n);
+                  if (balance < requiredBalance) {
+                    throw new Error("Insufficient Sepolia ETH for offer price and gas.");
+                  }
+                  const tx = await activeContract.acceptOffer(id, { value });
                   await tx.wait();
-                  showToast(`Offer accepted! Tx: <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View transaction</a>`, "success");
+                  showToast(`Offer #${id} accepted! <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" class="underline text-[var(--accent-wind)]">Receipt</a>`, "success");
                   await loadOffers();
                   updateDashboardStats();
                 } catch (err) {
-                  console.error("acceptOffer failed", err);
-                  showToast(err.reason || err.message || "Accept failed", "error");
+                  console.error("acceptOffer error:", err);
+                  showToast(marketplaceErrorMessage(err, "Accept failed"), "error");
                 } finally {
                   txt.textContent = "Accept";
                   spin.classList.add("hidden");
@@ -1419,129 +2393,152 @@
           container.appendChild(shell);
         }
 
-        if (priceChart) {
-          updatePriceChart(visibleOffers);
-        }
-        
+        if (priceChart) updatePriceChart(visibleOffers);
         updateDashboardStats();
       } catch (e) {
-        console.error("loadOffers failed", e);
-        container.innerHTML = "<p class='text-red-600'>Load failed.</p>";
+        console.error("loadOffers failed:", e);
+        container.innerHTML = "<p class='text-[var(--accent-danger)] p-4 text-center'>Failed to load listings.</p>";
       }
     }
 
     // -------------------------------------------------
-    // CHART INITIALIZATION
+    // DARK-THEMED CHART INITIALIZATION
     // -------------------------------------------------
     function initializeCharts() {
-      console.log("Initializing charts with Chart.js");
-      
-      // Price Chart
-      priceChart = new Chart(document.getElementById("priceChart"), {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [{
-            label: 'Offer Prices (ETH)',
-            data: [],
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.2)',
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: 'Price (ETH)' }
-            },
-            x: {
-              title: { display: true, text: 'Offer ID' }
-            }
-          }
-        }
-      });
-
-      // Accepted Chart
-      acceptedChart = new Chart(document.getElementById("acceptedChart"), {
-        type: 'pie',
-        data: {
-          labels: [],
-          datasets: [{
-            data: [],
-            backgroundColor: ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7']
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { position: 'top' },
-            title: { display: true, text: 'Accepted Offers by Seller' }
-          }
-        }
-      });
-
-      // Production Trend Chart
-      productionChart = new Chart(document.getElementById("productionChart"), {
-        type: 'line',
-        data: {
-          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-          datasets: [{
-            label: 'Solar (kWh)',
-            data: [12, 15, 13, 17, 14, 16, 18],
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            fill: true,
-            tension: 0.4
-          }, {
-            label: 'Wind (kWh)',
-            data: [8, 9, 10, 8, 9, 11, 10],
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: 'Energy (kWh)' }
-            }
+      const priceCtx = document.getElementById("priceChart");
+      if (priceCtx) {
+        priceChart = new Chart(priceCtx, {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [{
+              label: 'Offer Prices (ETH)',
+              data: [],
+              borderColor: CHART_THEME.colors.energy.stroke,
+              backgroundColor: CHART_THEME.colors.energy.fill,
+              fill: true,
+              tension: 0.4,
+              borderWidth: 2,
+              pointRadius: 3,
+              pointHoverRadius: 5
+            }]
           },
-          plugins: {
-            legend: { position: 'top' }
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: CHART_THEME.gridColor },
+                ticks: { color: CHART_THEME.textColor, font: { family: CHART_THEME.monoFamily } },
+                title: { display: true, text: 'Price (ETH)', color: CHART_THEME.textColor }
+              },
+              x: {
+                grid: { color: CHART_THEME.gridColor },
+                ticks: { color: CHART_THEME.textColor, font: { family: CHART_THEME.monoFamily } },
+                title: { display: true, text: 'Offer ID', color: CHART_THEME.textColor }
+              }
+            },
+            plugins: { legend: { display: false } }
           }
-        }
-      });
+        });
+      }
 
-      // Energy Mix Chart
-      mixChart = new Chart(document.getElementById("mixChart"), {
-        type: 'doughnut',
-        data: {
-          labels: ['Solar', 'Wind', 'Battery'],
-          datasets: [{
-            data: [55, 35, 10],
-            backgroundColor: ['#f59e0b', '#3b82f6', '#8b5cf6'],
-            borderWidth: 2,
-            borderColor: '#fff'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { position: 'right' },
-            title: { display: true, text: 'Current Energy Sources' }
+      const acceptedCtx = document.getElementById("acceptedChart");
+      if (acceptedCtx) {
+        acceptedChart = new Chart(acceptedCtx, {
+          type: 'pie',
+          data: {
+            labels: [],
+            datasets: [{
+              data: [],
+              backgroundColor: ['#238636', '#2EA043', '#3FB950', '#58A6FF', '#A371F7'],
+              borderColor: '#161B22',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'top', labels: { color: CHART_THEME.textColor } },
+              title: { display: true, text: 'Accepted Offers by Seller', color: CHART_THEME.tooltipTitle }
+            }
           }
-        }
-      });
+        });
+      }
+
+      const prodCtx = document.getElementById("productionChart");
+      if (prodCtx) {
+        productionChart = new Chart(prodCtx, {
+          type: 'line',
+          data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+              label: 'Solar (kWh)',
+              data: [12, 15, 13, 17, 14, 16, 18],
+              borderColor: CHART_THEME.colors.solar.stroke,
+              backgroundColor: CHART_THEME.colors.solar.fill,
+              fill: true,
+              tension: 0.4,
+              borderWidth: 2,
+              pointRadius: 3
+            }, {
+              label: 'Wind (kWh)',
+              data: [8, 9, 10, 8, 9, 11, 10],
+              borderColor: CHART_THEME.colors.wind.stroke,
+              backgroundColor: CHART_THEME.colors.wind.fill,
+              fill: true,
+              tension: 0.4,
+              borderWidth: 2,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: CHART_THEME.gridColor },
+                ticks: { color: CHART_THEME.textColor, font: { family: CHART_THEME.monoFamily } },
+                title: { display: true, text: 'Energy (kWh)', color: CHART_THEME.textColor }
+              },
+              x: {
+                grid: { color: CHART_THEME.gridColor },
+                ticks: { color: CHART_THEME.textColor }
+              }
+            },
+            plugins: {
+              legend: { position: 'top', labels: { color: CHART_THEME.textColor } }
+            }
+          }
+        });
+      }
+
+      const mixCtx = document.getElementById("mixChart");
+      if (mixCtx) {
+        mixChart = new Chart(mixCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Solar', 'Wind', 'Battery'],
+            datasets: [{
+              data: [55, 35, 10],
+              backgroundColor: [CHART_THEME.colors.solar.stroke, CHART_THEME.colors.wind.stroke, CHART_THEME.colors.battery.stroke],
+              borderWidth: 2,
+              borderColor: '#161B22'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'right', labels: { color: CHART_THEME.textColor } },
+              title: { display: true, text: 'Current Energy Sources', color: CHART_THEME.tooltipTitle }
+            }
+          }
+        });
+      }
     }
 
     function updateOverviewCharts() {
@@ -1553,7 +2550,7 @@
 
     function updatePriceChart(offers) {
       if (!priceChart) return;
-      const labels = offers.map(o => `Offer #${o.id}`);
+      const labels = offers.map(o => `#${o.id}`);
       const data = offers.map(o => o.priceEth);
       priceChart.data.labels = labels;
       priceChart.data.datasets[0].data = data;
@@ -1576,11 +2573,10 @@
     }
 
     // -------------------------------------------------
-    // LISTEN FOR OFFER ACCEPTED EVENT
+    // SMART CONTRACT EVENT LISTENERS
     // -------------------------------------------------
     async function listenForAccepts() {
       if (!contract) return;
-
       try { contract.off("OfferAccepted"); } catch(e) {}
 
       contract.on("OfferAccepted", (offerId, buyer, sellerHash, price, timestamp, event) => {
@@ -1602,7 +2598,7 @@
           if (acceptedChart) updateAcceptedChart();
           loadOffers();
         } catch (err) {
-          console.error("Error in OfferAccepted handler", err);
+          console.error("Error in OfferAccepted event handler:", err);
         }
       });
 
@@ -1629,36 +2625,28 @@
         updateAcceptedList();
         if (acceptedChart) updateAcceptedChart();
       } catch (e) {
-        console.error("Failed to load past accepts", e);
+        console.error("Failed loading past accepts:", e);
       }
     }
 
-    // -------------------------------------------------
-    // LISTEN FOR OFFER CREATED EVENT
-    // -------------------------------------------------
     async function listenForCreates() {
       if (!contract) return;
-
       try { contract.off("OfferCreated"); } catch(e) {}
 
       contract.on("OfferCreated", (offerId, userHash, price, timestamp, event) => {
         try {
-          console.log(`New offer created: #${offerId}`);
+          console.log(`New offer created on-chain: #${offerId}`);
           loadOffers();
         } catch (err) {
-          console.error("Error in OfferCreated handler", err);
+          console.error("Error in OfferCreated handler:", err);
         }
       });
     }
 
-    // -------------------------------------------------
-    // POLL FOR OFFERS
-    // -------------------------------------------------
     function startPolling() {
       clearInterval(pollInterval);
       pollInterval = setInterval(async () => {
         if (hasConnected && contract) {
-          console.log("Polling for new offers...");
           await loadOffers();
         }
       }, 30000);
@@ -1670,23 +2658,24 @@
       try {
         if (hash === hashUsername(currentName)) return currentName;
       } catch (e) {}
-      return String(hash).slice(0, 10) + "...";
+      return String(hash).slice(0, 10) + "…";
     }
 
     function updateAcceptedList() {
       const container = document.getElementById("acceptedContainer");
+      if (!container) return;
       if (!acceptedOffers.length) {
-        container.innerHTML = "<div class='empty-state'>No accepted offers are stored in this browser yet.</div>";
+        container.innerHTML = "<div class='empty-state'>No accepted transactions recorded in this browser yet.</div>";
         return;
       }
 
       const rows = acceptedOffers.map(offer => `
         <tr>
           <td><span class="table-id">#${escapeHtml(offer.id)}</span></td>
-          <td>${escapeHtml(offer.seller)}</td>
-          <td>${escapeHtml(offer.buyer)}</td>
-          <td>${escapeHtml(offer.date)}</td>
-          <td class="numeric font-semibold">${escapeHtml(offer.price)} ETH</td>
+          <td class="font-mono text-xs text-[var(--text-primary)] font-medium">${escapeHtml(offer.seller)}</td>
+          <td class="font-mono text-xs text-[var(--text-secondary)]">${escapeHtml(offer.buyer)}</td>
+          <td class="text-xs text-[var(--text-muted)]">${escapeHtml(offer.date)}</td>
+          <td class="numeric font-mono font-semibold text-[var(--text-primary)]">${escapeHtml(offer.price)} ETH</td>
           <td><span class="status-badge status-confirmed">Completed</span></td>
         </tr>
       `);
@@ -1695,7 +2684,7 @@
     }
 
     // -------------------------------------------------
-    // PRE-BOOKINGS AND BOOKING CONVERSATIONS
+    // PRE-BOOKINGS & CONVERSATIONS
     // -------------------------------------------------
     let selectedBookingId = null;
 
@@ -1710,7 +2699,7 @@
 
     async function bookingRequest(path, options = {}) {
       const token = getBackendToken();
-      if (!token) throw new Error("Sign in with a backend account to use pre-booking and messages.");
+      if (!token) throw new Error("Sign in with a backend account to access pre-bookings.");
       const response = await fetch(path, {
         ...options,
         headers: {
@@ -1727,44 +2716,57 @@
     function updateBookingAccess() {
       const enabled = Boolean(getBackendToken());
       const status = document.getElementById("bookingAuthStatus");
-      status.textContent = enabled ? "Backend account connected" : "Requires a backend account session";
-      status.className = `text-sm ${enabled ? "text-green-700" : "text-amber-700"}`;
-      document.getElementById("createBookingBtn").disabled = !enabled;
+      if (status) {
+        status.textContent = enabled ? "Backend account verified" : "Requires backend JWT session";
+        status.className = `text-xs font-mono ${enabled ? "text-[var(--accent-primary-text)]" : "text-[var(--accent-warning)]"}`;
+      }
+      const createBookingBtn = document.getElementById("createBookingBtn");
+      if (createBookingBtn) createBookingBtn.disabled = !enabled;
       if (enabled) loadBookings();
     }
 
     function updateBookingTotal() {
-      const units = Number(document.getElementById("bookingEnergyUnits").value);
-      const price = Number(document.getElementById("bookingPricePerUnit").value);
+      const units = Number(document.getElementById("bookingEnergyUnits")?.value);
+      const price = Number(document.getElementById("bookingPricePerUnit")?.value);
       const total = Number.isFinite(units) && Number.isFinite(price) ? units * price : 0;
-      document.getElementById("bookingTotal").textContent = total.toFixed(6);
+      const totalEl = document.getElementById("bookingTotal");
+      if (totalEl) totalEl.textContent = total.toFixed(6);
     }
 
     async function loadBookings() {
       const container = document.getElementById("bookingsContainer");
+      if (!container) return;
       if (!getBackendToken()) {
-        container.innerHTML = "<div class='empty-state'>Sign in with a backend account to view bookings.</div>";
+        container.innerHTML = "<div class='empty-state'>Sign in to view your pre-bookings.</div>";
         return;
       }
       container.innerHTML = "<p class='loading-state'>Loading pre-bookings…</p>";
       try {
         const bookings = await bookingRequest("/bookings/mine");
         if (!bookings.length) {
-          container.innerHTML = "<div class='empty-state'>No pre-bookings yet. Reserve future energy from a registered provider to begin.</div>";
+          container.innerHTML = "<div class='empty-state'>No pre-bookings yet. Reserve future energy to begin.</div>";
           return;
         }
         const rows = bookings.map((booking) => {
           const counterpart = booking.viewerRole === "customer" ? booking.provider : booking.customer;
           const actions = booking.status === "pending"
-            ? `${booking.viewerRole === "provider" ? `<button data-booking-action="confirmed" data-booking-id="${booking.id}" class="table-action table-action--confirm">Confirm</button>` : ""}<button data-booking-action="cancelled" data-booking-id="${booking.id}" class="table-action table-action--cancel">Cancel</button>`
+            ? `${booking.viewerRole === "provider" ? `<button data-booking-action="confirmed" data-booking-id="${booking.id}" class="table-action table-action--confirm mr-1">Confirm</button>` : ""}<button data-booking-action="cancelled" data-booking-id="${booking.id}" class="table-action table-action--cancel">Cancel</button>`
             : "";
-          return `<tr><td><span class="table-id">#${escapeHtml(booking.id)}</span></td><td><span class="font-medium">${escapeHtml(counterpart?.name || counterpart?.email || "Unknown")}</span><span class="block text-xs text-gray-500">${booking.viewerRole === "customer" ? "Provider" : "Customer"}</span></td><td>${escapeHtml(new Date(booking.scheduledFor).toLocaleString())}</td><td class="numeric">${escapeHtml(booking.energyUnits)} kWh</td><td class="numeric">${escapeHtml(booking.totalPrice)}</td><td>${formatBookingStatus(booking.status)}</td><td class="actions"><button data-booking-message="${booking.id}" class="table-action table-action--message" aria-label="Open messages for booking ${booking.id}">Messages</button>${actions}</td></tr>`;
+          return `<tr>
+            <td><span class="table-id">#${escapeHtml(booking.id)}</span></td>
+            <td><span class="font-medium text-[var(--text-primary)]">${escapeHtml(counterpart?.name || counterpart?.email || "Unknown")}</span><span class="block text-xs text-[var(--text-muted)]">${booking.viewerRole === "customer" ? "Provider" : "Customer"}</span></td>
+            <td class="text-xs text-[var(--text-muted)]">${escapeHtml(new Date(booking.scheduledFor).toLocaleString())}</td>
+            <td class="numeric font-mono">${escapeHtml(booking.energyUnits)} kWh</td>
+            <td class="numeric font-mono font-semibold text-[var(--text-primary)]">${escapeHtml(booking.totalPrice)}</td>
+            <td>${formatBookingStatus(booking.status)}</td>
+            <td class="actions"><button data-booking-message="${booking.id}" class="table-action table-action--message mr-1" aria-label="Open messages for booking ${booking.id}">Messages</button>${actions}</td>
+          </tr>`;
         }).join("");
         container.innerHTML = `<div class="table-shell"><table class="data-table"><thead><tr><th>Booking ID</th><th>Participant</th><th>Delivery</th><th class="numeric">Quantity</th><th class="numeric">Total</th><th>Status</th><th class="actions">Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         container.querySelectorAll("[data-booking-message]").forEach((button) => button.addEventListener("click", () => loadBookingMessages(Number(button.dataset.bookingMessage))));
         container.querySelectorAll("[data-booking-action]").forEach((button) => button.addEventListener("click", () => updateBookingStatus(Number(button.dataset.bookingId), button.dataset.bookingAction)));
       } catch (error) {
-        container.innerHTML = `<p class="text-red-600 text-center py-8">${escapeHtml(error.message)}</p>`;
+        container.innerHTML = `<p class="text-[var(--accent-danger)] text-center py-4 text-xs">${escapeHtml(error.message)}</p>`;
       }
     }
 
@@ -1781,6 +2783,7 @@
 
     async function loadBookingMessages(bookingId) {
       const container = document.getElementById("bookingMessages");
+      if (!container) return;
       selectedBookingId = bookingId;
       document.getElementById("bookingMessageInput").disabled = true;
       document.getElementById("sendBookingMessageBtn").disabled = true;
@@ -1789,23 +2792,44 @@
         const { booking, messages } = await bookingRequest(`/bookings/${bookingId}/messages`);
         const counterpart = booking.viewerRole === "customer" ? booking.provider : booking.customer;
         document.getElementById("messageBookingTitle").textContent = `Booking #${booking.id} with ${counterpart?.name || counterpart?.email || "participant"}`;
-        container.classList.add("message-thread");
-        container.innerHTML = messages.length ? messages.map((message) => `<div class="message-bubble border rounded-lg p-3 ${message.senderId === booking.customerId && booking.viewerRole === "customer" || message.senderId === booking.providerId && booking.viewerRole === "provider" ? "bg-green-50" : "bg-white"}"><p class="text-sm font-semibold">${escapeHtml(message.sender?.name || "Participant")}</p><p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(message.body)}</p><p class="text-xs text-gray-500 mt-1">${escapeHtml(new Date(message.createdAt).toLocaleString())}</p></div>`).join("") : "<p class='empty-state'>Start the conversation for this booking.</p>";
+        
+        container.innerHTML = messages.length ? messages.map((message) => {
+          const isMe = (message.senderId === booking.customerId && booking.viewerRole === "customer") ||
+                       (message.senderId === booking.providerId && booking.viewerRole === "provider");
+          return `<div class="message-bubble ${isMe ? 'is-me' : ''}">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-semibold text-[var(--text-primary)]">${escapeHtml(message.sender?.name || (isMe ? "You" : "Participant"))}</span>
+              <span class="text-[var(--text-muted)] font-mono">${escapeHtml(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span>
+            </div>
+            <p class="text-xs text-[var(--text-primary)] whitespace-pre-wrap">${escapeHtml(message.body)}</p>
+          </div>`;
+        }).join("") : "<p class='empty-state'>Start the conversation for this booking.</p>";
+        
+        container.scrollTop = container.scrollHeight;
         document.getElementById("bookingMessageInput").disabled = false;
         document.getElementById("sendBookingMessageBtn").disabled = false;
       } catch (error) {
         selectedBookingId = null;
-        container.innerHTML = `<p class="text-red-600 text-center py-8">${escapeHtml(error.message)}</p>`;
+        container.innerHTML = `<p class="text-[var(--accent-danger)] text-center py-4 text-xs">${escapeHtml(error.message)}</p>`;
       }
     }
 
     document.getElementById("bookingEnergyUnits").addEventListener("input", updateBookingTotal);
     document.getElementById("bookingPricePerUnit").addEventListener("input", updateBookingTotal);
     document.getElementById("refreshBookingsBtn").addEventListener("click", loadBookings);
+    
     document.getElementById("bookingForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       try {
-        const result = await bookingRequest("/bookings", { method: "POST", body: JSON.stringify({ providerEmail: document.getElementById("bookingProviderEmail").value, scheduledFor: document.getElementById("bookingScheduledFor").value, energyUnits: document.getElementById("bookingEnergyUnits").value, pricePerUnit: document.getElementById("bookingPricePerUnit").value }) });
+        const result = await bookingRequest("/bookings", {
+          method: "POST",
+          body: JSON.stringify({
+            providerEmail: document.getElementById("bookingProviderEmail").value,
+            scheduledFor: document.getElementById("bookingScheduledFor").value,
+            energyUnits: document.getElementById("bookingEnergyUnits").value,
+            pricePerUnit: document.getElementById("bookingPricePerUnit").value
+          })
+        });
         event.currentTarget.reset();
         updateBookingTotal();
         showToast(`Pre-booking #${result.booking.id} created.`, "success");
@@ -1814,12 +2838,16 @@
         showToast(error.message, "error");
       }
     });
+
     document.getElementById("bookingMessageForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!selectedBookingId) return;
       const input = document.getElementById("bookingMessageInput");
       try {
-        await bookingRequest(`/bookings/${selectedBookingId}/messages`, { method: "POST", body: JSON.stringify({ body: input.value }) });
+        await bookingRequest(`/bookings/${selectedBookingId}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ body: input.value })
+        });
         input.value = "";
         await loadBookingMessages(selectedBookingId);
       } catch (error) {
@@ -1828,7 +2856,7 @@
     });
 
     // -------------------------------------------------
-    // EVENT LISTENERS
+    // FILTER LISTENERS
     // -------------------------------------------------
     document.getElementById("showAllToggle").addEventListener("change", loadOffers);
     document.getElementById("sortOffers").addEventListener("change", loadOffers);
@@ -1837,19 +2865,24 @@
     // -------------------------------------------------
     // LOGOUT
     // -------------------------------------------------
+    function clearEnergyChainSession() {
+      sessionStorage.clear();
+    }
+
     document.getElementById("logoutBtn").addEventListener("click", () => {
       clearInterval(pollInterval);
-      sessionStorage.clear();
+      clearEnergyChainSession();
       window.location.href = "login.html";
     });
 
     // -------------------------------------------------
-    // ABI
+    // CONTRACT ABI
     // -------------------------------------------------
     const CONTRACT_ABI = [
       "function createOffer(bytes32 userHash, uint256 price)",
       "function getOfferCount() view returns (uint256)",
       "function getOffer(uint256 id) view returns (bytes32, uint256, uint256, bool)",
+      "function getOwnerAddress(uint256 id) view returns (address)",
       "function cancelOffer(uint256 id)",
       "function acceptOffer(uint256 id) payable",
       "function getActiveUserOfferIds(bytes32 userHash) view returns (uint256[])",

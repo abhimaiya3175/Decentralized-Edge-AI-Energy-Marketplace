@@ -1,0 +1,87 @@
+{
+  "model_version": "1.0.0",
+  "trained_at_utc": "2026-11-18T16:50:33.358532+00:00",
+  "dataset_path": "data\\Energy_consumption.csv",
+  "dataset_rows": 1000,
+  "duplicates_removed": 0,
+  "missing_values": {
+    "Timestamp": 0,
+    "Temperature": 0,
+    "Humidity": 0,
+    "SquareFootage": 0,
+    "Occupancy": 0,
+    "HVACUsage": 0,
+    "LightingUsage": 0,
+    "RenewableEnergy": 0,
+    "DayOfWeek": 0,
+    "Holiday": 0,
+    "EnergyConsumption": 0
+  },
+  "feature_columns": [
+    "Temperature",
+    "Humidity",
+    "SquareFootage",
+    "Occupancy",
+    "RenewableEnergy",
+    "hour",
+    "day",
+    "month",
+    "is_weekend",
+    "HVACUsage",
+    "LightingUsage",
+    "DayOfWeek",
+    "Holiday"
+  ],
+  "selected_algorithm": "LinearRegression",
+  "model_comparison": {
+    "LinearRegression": {
+      "mae": 4.122185731849177,
+      "mse": 25.018159417581863,
+      "rmse": 5.001815612113452,
+      "r2": 0.591748423005559
+    },
+    "RandomForestRegressor": {
+      "mae": 4.1974347272345796,
+      "mse": 26.52806821527447,
+      "rmse": 5.1505405750536974,
+      "r2": 0.5671094142964457
+    },
+    "GradientBoostingRegressor": {
+      "mae": 4.09790942625973,
+      "mse": 25.238705552616167,
+      "rmse": 5.023813845338635,
+      "r2": 0.588149504878732
+    }
+  },
+  "training_period": {
+    "start": "2022-01-01 00:00:00",
+    "end": "2022-02-03 07:00:00"
+  },
+  "validation_period": {
+    "start": "2022-02-03 08:00:00",
+    "end": "2022-02-11 15:00:00"
+  },
+  "numeric_ranges": {
+    "Temperature": {
+      "min": 20.00756508361767,
+      "max": 29.998670840983927
+    },
+    "Humidity": {
+      "min": 30.01597450346074,
+      "max": 59.96908490414602
+    },
+    "SquareFootage": {
+      "min": 1000.5126606747408,
+      "max": 1999.982252131635
+    },
+    "Occupancy": {
+      "min": 0.0,
+      "max": 9.0
+    },
+    "RenewableEnergy": {
+      "min": 0.0066421051905973,
+      "max": 29.96532733777335
+    }
+  },
+  "target_unit": "dataset-defined unit (not specified)"
+}

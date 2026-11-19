@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "network": { "chainId": 11155111, "name": "Sepolia" },
+  "legacyContract": {
+    "address": "0xe026E90518516bDEb48c9F585c16a3FFBf21fDaE",
+    "status": "historical-unpurchasable",
+    "reason": "The deployed runtime does not expose the repository ownership-read functions and cross-seller acceptOffer preflight reverts.",
+    "auditHeadBlock": 12163030,
+    "knownDashboardAbi": [
+      "function createOffer(bytes32 userHash, uint256 price)",
+      "function getOfferCount() view returns (uint256)",
+      "function getOffer(uint256 id) view returns (bytes32, uint256, uint256, bool)",
+      "function cancelOffer(uint256 id)",
+      "function acceptOffer(uint256 id) payable",
+      "function getActiveUserOfferIds(bytes32 userHash) view returns (uint256[])",
+      "event OfferCreated(uint256 indexed offerId, bytes32 indexed userHash, uint256 price, uint256 timestamp)",
+      "event OfferAccepted(uint256 indexed offerId, address buyer, bytes32 sellerHash, uint256 price, uint256 timestamp)"
+    ],
+    "missingFromDeployedRuntime": ["getOwnerAddress(uint256)", "ownerOfOffer(uint256)"],
+    "energyIdentifier": "not available in the legacy on-chain offer tuple"
+  },
+  "offers": [
+    { "offerId": 0, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0x8789dd8df90306fe521bc4c178e69dc56abacf988b067d986d0d315162b47bac", "priceWei": "10000000000000000", "priceEth": "0.01", "timestamp": "1763145528", "active": true, "creationTransactionHash": "0xffe95939b3b64b85e3baf21d28f54ba07a86e4f8826aa2066f00be8b278b6016", "creationBlockNumber": 9630064 },
+    { "offerId": 1, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x4f8fe2712c2252780b76eae73a095024d488decb6188890e09021d7f29775cc5", "priceWei": "12000000000000000", "priceEth": "0.012", "timestamp": "1763155212", "active": true, "creationTransactionHash": "0x954bb3580611ad89a1bc9f79ef341587e7e33ace357fc166a8968da2703800ca", "creationBlockNumber": 9630813 },
+    { "offerId": 2, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0xe631f70d80a14355d5374cbcad04a5c8a53097c40b911b140b0d46e5c85ee098", "priceWei": "40000000000000000", "priceEth": "0.04", "timestamp": "1763155212", "active": true, "creationTransactionHash": "0x467ccf514b2e4db714ba897781b080b97392cb4671801be30ca98b180c07ea2b", "creationBlockNumber": 9630813 },
+    { "offerId": 3, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0xe631f70d80a14355d5374cbcad04a5c8a53097c40b911b140b0d46e5c85ee098", "priceWei": "50000000000000000", "priceEth": "0.05", "timestamp": "1763155488", "active": true, "creationTransactionHash": "0xb57e90a4d6800bca869f2e4557e9587cc17dd688554f4359df55e09c370ffa0b", "creationBlockNumber": 9630835 },
+    { "offerId": 4, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0xe631f70d80a14355d5374cbcad04a5c8a53097c40b911b140b0d46e5c85ee098", "priceWei": "90000000000000000", "priceEth": "0.09", "timestamp": "1763165208", "active": true, "creationTransactionHash": "0x76ece8a77a2e3aa1112d6ffba066b5f3091f2c667ed0eba12d0a0936f1dc33cf", "creationBlockNumber": 9631582 },
+    { "offerId": 5, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x4f8fe2712c2252780b76eae73a095024d488decb6188890e09021d7f29775cc5", "priceWei": "10000000000000000", "priceEth": "0.01", "timestamp": "1763166564", "active": true, "creationTransactionHash": "0x9e19a4389ff548080979b00aa1cb3a9f22caa0eff41e4c1446aba1b0bfdc0602", "creationBlockNumber": 9631689 },
+    { "offerId": 6, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x4f8fe2712c2252780b76eae73a095024d488decb6188890e09021d7f29775cc5", "priceWei": "50000000000000000", "priceEth": "0.05", "timestamp": "1763166564", "active": true, "creationTransactionHash": "0x319e033dddb1191e451e8820da4d198a571dac6c7b2ea79872d8de0fe27123de", "creationBlockNumber": 9631689 },
+    { "offerId": 7, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0xe631f70d80a14355d5374cbcad04a5c8a53097c40b911b140b0d46e5c85ee098", "priceWei": "40000000000000000", "priceEth": "0.04", "timestamp": "1763180160", "active": true, "creationTransactionHash": "0xc46dddfafeafc3cfad7049d5c7e4199a209a68a48d29b621905bc2780d0c61db", "creationBlockNumber": 9632747 },
+    { "offerId": 8, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x4f8fe2712c2252780b76eae73a095024d488decb6188890e09021d7f29775cc5", "priceWei": "200000000000000000", "priceEth": "0.2", "timestamp": "1763181444", "active": true, "creationTransactionHash": "0xd31a8120bff6edd181295010388b11aad364e46ad65073d23670984008eb006f", "creationBlockNumber": 9632850 },
+    { "offerId": 9, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0x9db25c067abba77bd16262c930e29aa549ce44b9f00905ff46f3bd25fc8e7802", "priceWei": "20000000000000000", "priceEth": "0.02", "timestamp": "1763184276", "active": true, "creationTransactionHash": "0xbea85a888aed3664c53153eac20b8ea33e0a76a5066349a3b23dab6122379cc4", "creationBlockNumber": 9633071 },
+    { "offerId": 10, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x4f8fe2712c2252780b76eae73a095024d488decb6188890e09021d7f29775cc5", "priceWei": "30000000000000000", "priceEth": "0.03", "timestamp": "1763185524", "active": true, "creationTransactionHash": "0x9ff5aae1b592cc0d9499d972511c0532d72708330c394c03c83a383066a8e28c", "creationBlockNumber": 9633164 },
+    { "offerId": 11, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0x3917c9742f09279ca21a9b6c1d16e350514917d15adc589d4f091bc958fa6240", "priceWei": "50000000000000000", "priceEth": "0.05", "timestamp": "1763188020", "active": true, "creationTransactionHash": "0xfd3fa820edfb853353140257bfbf590c45ea1bccac73f56a0635888fe108a186", "creationBlockNumber": 9633361 },
+    { "offerId": 12, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0x3917c9742f09279ca21a9b6c1d16e350514917d15adc589d4f091bc958fa6240", "priceWei": "80000000000000000", "priceEth": "0.08", "timestamp": "1763190600", "active": true, "creationTransactionHash": "0xbe772bff480e54879107fb9e3bd354a2c72df25631320d358ed5cca5963486b6", "creationBlockNumber": 9633563 },
+    { "offerId": 13, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0x3917c9742f09279ca21a9b6c1d16e350514917d15adc589d4f091bc958fa6240", "priceWei": "30000000000000000", "priceEth": "0.03", "timestamp": "1763193072", "active": true, "creationTransactionHash": "0xf80b3320e3093d0076b062d9239ad0f38b76c155dbdaf9d0f8c926b5b0bf3a4b", "creationBlockNumber": 9633749 },
+    { "offerId": 14, "sellerAddress": "0xFDF5f7FA786f6671a7a75Debe5028E7E479c8f9D", "userHash": "0xe631f70d80a14355d5374cbcad04a5c8a53097c40b911b140b0d46e5c85ee098", "priceWei": "30000000000000000", "priceEth": "0.03", "timestamp": "1763195820", "active": true, "creationTransactionHash": "0xbb6cc27b7965855de0352956b1077993772e09fc653850cdcb1cd68a41fdfc17", "creationBlockNumber": 9633962 },
+    { "offerId": 15, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x020dc242b3c3d9fedf482d2b372674f753fbc4b387b242ca3cae2956d5cf46f8", "priceWei": "10000000000000000", "priceEth": "0.01", "timestamp": "1794933828", "active": false, "creationTransactionHash": "0xd9728e84d634e00afe18e8c1f7b63912fdad0d67135a3bb88f594ea6bdb9fba5", "creationBlockNumber": 12155658 },
+    { "offerId": 16, "sellerAddress": "0xEf42458FBD0118Fd901932537033D2A3b6072681", "userHash": "0x7049e4133b90f4d5e0036879caec098765653ce1a8b7b53f2e6701906bc8fcc2", "priceWei": "10000000000000000", "priceEth": "0.01", "timestamp": "1794947856", "active": true, "creationTransactionHash": "0xdb25a931e750756cf8247c1582c52666c136054ec667f7039fa75568db72682b", "creationBlockNumber": 12156812 }
+  ]
+}

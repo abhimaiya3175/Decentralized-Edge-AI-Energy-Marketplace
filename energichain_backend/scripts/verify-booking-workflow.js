@@ -1,10 +1,12 @@
 const { sequelize } = require("../src/models");
+const app = require("../src/app");
 
-const baseUrl = process.env.APP_URL || "http://127.0.0.1:5000";
+let baseUrl = process.env.APP_URL || "http://127.0.0.1:5000";
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const password = "BookingTestPassword!42";
 let bookingId;
 let userIds = [];
+let localServer = null;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -20,7 +22,24 @@ async function request(path, options = {}) {
   return body;
 }
 
+async function ensureServer() {
+  try {
+    await fetch(`${baseUrl}/auth/me`);
+  } catch (err) {
+    await sequelize.authenticate();
+    await new Promise((resolve) => {
+      localServer = app.listen(0, "127.0.0.1", () => {
+        baseUrl = `http://127.0.0.1:${localServer.address().port}`;
+        resolve();
+      });
+    });
+  }
+}
+
 async function cleanup() {
+  if (localServer) {
+    await new Promise((resolve) => localServer.close(resolve));
+  }
   if (bookingId) {
     await sequelize.query('DELETE FROM "BookingMessages" WHERE "bookingId" = :bookingId', {
       replacements: { bookingId },
@@ -38,6 +57,7 @@ async function cleanup() {
 }
 
 async function main() {
+  await ensureServer();
   const customerEmail = `booking-customer-${suffix}@example.test`;
   const providerEmail = `booking-provider-${suffix}@example.test`;
 

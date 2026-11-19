@@ -3,6 +3,7 @@ const User = require("./User");
 const Trade = require("./Trade");
 const Booking = require("./Booking");
 const BookingMessage = require("./BookingMessage");
+const WalletBinding = require("./WalletBinding");
 
 // associations
 User.hasMany(Trade, { foreignKey: "userId" });
@@ -18,6 +19,9 @@ BookingMessage.belongsTo(Booking, { foreignKey: "bookingId" });
 User.hasMany(BookingMessage, { foreignKey: "senderId", as: "bookingMessages" });
 BookingMessage.belongsTo(User, { foreignKey: "senderId", as: "sender" });
 
+User.hasOne(WalletBinding, { foreignKey: "userId", as: "walletBinding" });
+WalletBinding.belongsTo(User, { foreignKey: "userId", as: "user" });
+
 const connectDB = async () => {
   await sequelize.authenticate();
   // Create only missing tables. Do not alter or force-sync an existing schema.
@@ -25,4 +29,4 @@ const connectDB = async () => {
   console.log("Postgres DB connected; required tables are available.");
 };
 
-module.exports = { sequelize, User, Trade, Booking, BookingMessage, connectDB };
+module.exports = { sequelize, User, Trade, Booking, BookingMessage, WalletBinding, connectDB };

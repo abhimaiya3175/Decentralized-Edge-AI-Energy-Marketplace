@@ -2,6 +2,17 @@
 pragma solidity ^0.8.0;
 
 contract EnergyOffer {
+    // A simple lock protects the payment path from a recipient attempting to
+    // re-enter acceptOffer while its offer is being settled.
+    uint256 private locked = 1;
+
+    modifier nonReentrant() {
+        require(locked == 1, "No reentrancy");
+        locked = 2;
+        _;
+        locked = 1;
+    }
+
     struct Offer {
         bytes32 userHash;
         uint256 price;
@@ -69,7 +80,7 @@ contract EnergyOffer {
         emit OfferCancelled(_id, offers[_id].userHash);
     }
 
-    function acceptOffer(uint256 _id) external payable {
+    function acceptOffer(uint256 _id) external payable nonReentrant {
         require(_id < offers.length, "Invalid offer ID");
         Offer storage o = offers[_id];
         require(o.active, "Offer not active");

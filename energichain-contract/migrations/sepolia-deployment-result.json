@@ -1,0 +1,10 @@
+{
+  "chainId": 11155111,
+  "contract": "EnergyOffer",
+  "address": "0x1fD069E2a2eF49EE4FAf2c5C168c92f938118DA7",
+  "deploymentTransactionHash": "0x6645d63294075083f110551aed280b4fa375c5ea9e3bc21f737c5c26ea732104",
+  "deploymentBlockNumber": 12166941,
+  "bytecodePresent": true,
+  "bytecodeLength": 6109,
+  "offerCountVerified": 0
+}

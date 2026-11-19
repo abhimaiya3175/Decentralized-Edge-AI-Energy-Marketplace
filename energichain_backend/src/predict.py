@@ -4,10 +4,29 @@ import numpy as np
 import sys
 import json
 from datetime import datetime
+from pathlib import Path
 
-# Load the model
-with open("solar_rf_model.pkl", "rb") as f:
-    model = pickle.load(f)
+# The legacy training script writes this artifact into model_train/, while
+# earlier backend builds expected it beside this script. Support either
+# location without fabricating a prediction when no compatible model exists.
+MODEL_PATHS = (
+    Path(__file__).resolve().parent / "solar_rf_model.pkl",
+    Path(__file__).resolve().parent.parent / "model_train" / "solar_rf_model.pkl",
+)
+model = None
+model_error = None
+
+for model_path in MODEL_PATHS:
+    if not model_path.is_file():
+        continue
+    try:
+        model = pickle.load(model_path.open("rb"))
+        break
+    except Exception as error:
+        model_error = f"Unable to load solar model artifact: {error}"
+
+if model is None and model_error is None:
+    model_error = "Solar model artifact is unavailable. Train and place solar_rf_model.pkl in model_train/ before using /predict."
 
 def calculate_time_features(date_time_str):
     """Calculate sinusoidal time features from datetime string."""
@@ -23,6 +42,9 @@ def calculate_time_features(date_time_str):
 
 def predict(data):
     try:
+        if model is None:
+            return {"error": model_error, "code": "MODEL_UNAVAILABLE"}
+
         date_time = data["dateTime"]
         irradiation = float(data["irradiation"])
         ambient_temp = float(data["ambientTemp"])
@@ -65,8 +87,12 @@ def predict(data):
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    # Read input from stdin (sent by Node.js)
-    input_data = json.load(sys.stdin)
-    result = predict(input_data)
+    try:
+        # PythonShell supplies JSON through argv when its `args` option is
+        # used; retain stdin support for direct command-line use.
+        input_data = json.loads(sys.argv[1]) if len(sys.argv) > 1 else json.load(sys.stdin)
+        result = predict(input_data)
+    except Exception as error:
+        result = {"error": f"Invalid prediction input: {error}", "code": "INVALID_INPUT"}
     # Output result as JSON to stdout
     print(json.dumps(result))

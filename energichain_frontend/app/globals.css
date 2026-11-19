@@ -1,0 +1,312 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* MetaMask Dark Canvas & Surfaces */
+  --bg-canvas: #141618;
+  --bg-subtle: #181A1D;
+  --bg-surface: #1E2024;
+  --bg-elevated: #25282D;
+  --bg-hover: #2D3137;
+  --bg-input: #121416;
+
+  /* MetaMask Hairline Borders */
+  --border-default: #2B2E33;
+  --border-subtle: #202327;
+  --border-light: #3B3E45;
+  --border-active: #8A939E;
+
+  /* Typography */
+  --text-primary: #FFFFFF;
+  --text-secondary: #9FA6B2;
+  --text-muted: #6A7380;
+
+  /* MetaMask Signature Fox Orange */
+  --accent-fox: #F6851B;
+  --accent-fox-hover: #E2761B;
+  --accent-fox-soft: rgba(246, 133, 27, 0.12);
+  --accent-fox-border: rgba(246, 133, 27, 0.28);
+  --accent-fox-text: #FFA959;
+
+  /* MetaMask Electric Blue (Primary Web3 Action) */
+  --accent-blue: #0376C9;
+  --accent-blue-hover: #1098FC;
+  --accent-blue-soft: rgba(3, 118, 201, 0.14);
+  --accent-blue-border: rgba(3, 118, 201, 0.35);
+  --accent-blue-text: #38BDF8;
+
+  /* EnergyChain Clean Energy Emerald */
+  --accent-primary: #10B981;
+  --accent-primary-hover: #059669;
+  --accent-primary-soft: rgba(16, 185, 129, 0.14);
+  --accent-primary-border: rgba(16, 185, 129, 0.32);
+  --accent-primary-text: #34D399;
+
+  /* Solar Warm Amber / REC */
+  --accent-solar: #F59E0B;
+  --accent-solar-soft: rgba(245, 158, 11, 0.14);
+  --accent-solar-border: rgba(245, 158, 11, 0.32);
+  --accent-solar-text: #FBBF24;
+
+  /* Wind Kinetic Cyan */
+  --accent-wind: #06B6D4;
+  --accent-wind-soft: rgba(6, 182, 212, 0.14);
+  --accent-wind-border: rgba(6, 182, 212, 0.32);
+  --accent-wind-text: #22D3EE;
+
+  /* Battery Storage Purple */
+  --accent-battery: #8B5CF6;
+  --accent-battery-soft: rgba(139, 92, 246, 0.14);
+  --accent-battery-border: rgba(139, 92, 246, 0.32);
+  --accent-battery-text: #A78BFA;
+
+  /* Semantic Alerts */
+  --accent-danger: #EF4444;
+  --accent-danger-soft: rgba(239, 68, 68, 0.14);
+  --accent-danger-border: rgba(239, 68, 68, 0.32);
+
+  --accent-warning: #F59E0B;
+  --accent-warning-soft: rgba(245, 158, 11, 0.14);
+  --accent-warning-border: rgba(245, 158, 11, 0.32);
+
+  /* MetaMask Focus Glow */
+  --focus-ring: 0 0 0 2px #0376C9, 0 0 0 4px rgba(3, 118, 201, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* MetaMask Style Card */
+.card, .mm-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover, .mm-card:hover {
+  border-color: var(--border-light);
+}
+
+/* MetaMask Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.25;
+  user-select: none;
+}
+
+/* Primary Button (Electric Blue or High-Contrast White) */
+.btn-primary {
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-blue-hover);
+  box-shadow: 0 0 16px rgba(3, 118, 201, 0.4);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* MetaMask Fox Orange Button */
+.btn-fox {
+  background-color: var(--accent-fox);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.btn-fox:hover:not(:disabled) {
+  background-color: var(--accent-fox-hover);
+  box-shadow: 0 0 18px rgba(246, 133, 27, 0.35);
+}
+
+/* Energy Green Button */
+.btn-green {
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.btn-green:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+/* Secondary Button (MetaMask Dark Slate Surface) */
+.btn-secondary {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  border-color: var(--border-active);
+}
+
+/* Danger Button */
+.btn-danger {
+  background-color: var(--accent-danger-soft);
+  color: #F87171;
+  border: 1px solid var(--accent-danger-border);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--accent-danger);
+  color: #FFFFFF;
+}
+
+/* Pill Button (MetaMask Portfolio style) */
+.btn-pill {
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Input Fields (MetaMask Deep Recessed Well) */
+.input, .mm-input {
+  width: 100%;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input:focus, .mm-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: var(--focus-ring);
+}
+.input::placeholder, .mm-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Badges & Status Pills */
+.badge, .mm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.badge-fox {
+  background-color: var(--accent-fox-soft);
+  color: var(--accent-fox-text);
+  border: 1px solid var(--accent-fox-border);
+}
+
+.badge-blue {
+  background-color: var(--accent-blue-soft);
+  color: var(--accent-blue-text);
+  border: 1px solid var(--accent-blue-border);
+}
+
+.badge-solar {
+  background-color: var(--accent-solar-soft);
+  color: var(--accent-solar-text);
+  border: 1px solid var(--accent-solar-border);
+}
+
+.badge-wind {
+  background-color: var(--accent-wind-soft);
+  color: var(--accent-wind-text);
+  border: 1px solid var(--accent-wind-border);
+}
+
+.badge-success {
+  background-color: var(--accent-primary-soft);
+  color: var(--accent-primary-text);
+  border: 1px solid var(--accent-primary-border);
+}
+
+.badge-danger {
+  background-color: var(--accent-danger-soft);
+  color: #F87171;
+  border: 1px solid var(--accent-danger-border);
+}
+
+.badge-neutral {
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+/* Data Tables */
+.table, .mm-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th, .mm-table th {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.table td, .mm-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.table tr:hover td, .mm-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}

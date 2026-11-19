@@ -1,0 +1,12 @@
+{
+  "11155111": {
+    "legacyContracts": [
+      {
+        "address": "0xe026E90518516bDEb48c9F585c16a3FFBf21fDaE",
+        "label": "Legacy EnergyOffer (historical)",
+        "status": "historical-unpurchasable",
+        "snapshot": "/config/legacy_sepolia_energyoffer_snapshot.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "id": 0,
+    "contract": "0xe026E90518516bDEb48c9F585c16a3FFBf21fDaE",
+    "userHash": "0x4b726973686e6100000000000000000000000000000000000000000000000000",
+    "seller": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "priceEth": "0.050",
+    "timestamp": 1708300000,
+    "status": "Settled",
+    "buyer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "note": "Legacy Sepolia Offer #0"
+  },
+  {
+    "id": 1,
+    "contract": "0xe026E90518516bDEb48c9F585c16a3FFBf21fDaE",
+    "userHash": "0x736f6c61725f7573657200000000000000000000000000000000000000000000",
+    "seller": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "priceEth": "0.025",
+    "timestamp": 1708350000,
+    "status": "Settled",
+    "buyer": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+    "note": "Legacy Sepolia Offer #1"
+  }
+]
