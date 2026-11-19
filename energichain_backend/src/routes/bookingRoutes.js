@@ -10,6 +10,7 @@ const {
   createBookingMessage,
 } = require("../controllers/bookingController");
 
+router.get("/", auth, getMyBookings);
 router.post("/", auth, createBooking);
 router.get("/mine", auth, getMyBookings);
 router.patch("/:id/status", auth, updateBookingStatus);

@@ -1,5 +1,9 @@
 const { Op } = require("sequelize");
 const { Booking, BookingMessage, User } = require("../models");
+let broadcastBookingMessage = null;
+try {
+  broadcastBookingMessage = require("../websocket").broadcastBookingMessage;
+} catch {}
 
 const userAttributes = ["id", "name", "email"];
 const bookingIncludes = [
@@ -136,6 +140,13 @@ exports.createBookingMessage = async (req, res) => {
     const result = await BookingMessage.findByPk(message.id, {
       include: [{ model: User, as: "sender", attributes: userAttributes }],
     });
+    if (broadcastBookingMessage) {
+      try {
+        broadcastBookingMessage(booking.id, result);
+      } catch (broadcastErr) {
+        console.error("WS broadcast error:", broadcastErr);
+      }
+    }
     res.status(201).json({ msg: "Message sent.", message: result });
   } catch (error) {
     console.error("Create message error:", error);
