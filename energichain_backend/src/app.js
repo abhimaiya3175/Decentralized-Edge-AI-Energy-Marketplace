@@ -15,10 +15,48 @@ const app = express();
 const publicPath = path.join(__dirname, "..", "public");
 const reactBuildPath = path.join(publicPath, "app");
 
-// 1. Helmet Security Headers (allow cross-origin assets for Next.js)
+// 1. Helmet Security Headers with explicit, minimal Content-Security-Policy
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          // 'unsafe-inline' is required for static legacy HTML pages (index.html, login.html,
+          // signup.html, dashboard.html) containing inline <script> blocks.
+          "'unsafe-inline'",
+          // 'unsafe-eval' is required by Tailwind CSS Play CDN (cdn.tailwindcss.com) for in-browser JIT compiling
+          "'unsafe-eval'",
+          "https://cdn.tailwindcss.com",
+          "https://unpkg.com",
+        ],
+        styleSrc: [
+          "'self'",
+          // 'unsafe-inline' is required for inline <style> tags and Tailwind dynamic style injection
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+        ],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          // WebSocket connection for real-time bilateral in-app chat
+          "ws:",
+          "wss:",
+          // Ethereum RPC endpoints used by ethers provider / MetaMask
+          "https://*.infura.io",
+          "https://*.alchemy.com",
+          "https://rpc.sepolia.org",
+          "https://sepolia.infura.io",
+          "https://ethereum-sepolia-rpc.publicnode.com",
+        ],
+        frameAncestors: ["'self'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        objectSrc: ["'none'"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
@@ -60,29 +98,51 @@ app.use(
 app.use(express.json({ limit: "256kb" }));
 
 // 3. Configurable Auth Rate Limiting
-const authRateLimitMax = process.env.AUTH_RATE_LIMIT_MAX
-  ? parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10)
-  : (process.env.NODE_ENV === "test" ? 10000 : 20);
+// Differentiated limits: tighter for login to deter brute force (10 / 15m), higher for signup (20 / 15m)
+const shouldSkipRateLimiting = () =>
+  process.env.NODE_ENV === "test" && process.env.ENABLE_RATE_LIMIT_TEST !== "true";
 
-const authLimiter = rateLimit({
+const loginRateLimitMax = process.env.AUTH_LOGIN_RATE_LIMIT_MAX
+  ? parseInt(process.env.AUTH_LOGIN_RATE_LIMIT_MAX, 10)
+  : (shouldSkipRateLimiting() ? 10000 : 10);
+
+const signupRateLimitMax = process.env.AUTH_SIGNUP_RATE_LIMIT_MAX
+  ? parseInt(process.env.AUTH_SIGNUP_RATE_LIMIT_MAX, 10)
+  : (shouldSkipRateLimiting() ? 10000 : 20);
+
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: authRateLimitMax,
-  skip: () => process.env.NODE_ENV === "test", // Disabled in test suite
+  max: loginRateLimitMax,
+  skip: shouldSkipRateLimiting,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    msg: "Too many authentication requests, please try again later.",
+    msg: "Too many login attempts, please try again later.",
+    code: "AUTH_RATE_LIMITED",
+  },
+});
+
+const signupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: signupRateLimitMax,
+  skip: shouldSkipRateLimiting,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    msg: "Too many account registration attempts, please try again later.",
     code: "AUTH_RATE_LIMITED",
   },
 });
 
 // Apply rate limiting specifically to credential endpoints
-app.use("/auth/login", authLimiter);
-app.use("/auth/signup", authLimiter);
+app.use("/auth/login", loginLimiter);
+app.use("/auth/signup", signupLimiter);
 
 // 4. Subprocess Concurrency & Execution Timeout Manager
 let activeInferences = 0;
-const MAX_CONCURRENT_INFERENCES = 5;
+const MAX_CONCURRENT_INFERENCES = process.env.MAX_CONCURRENT_INFERENCES
+  ? parseInt(process.env.MAX_CONCURRENT_INFERENCES, 10)
+  : 5;
 const INFERENCE_TIMEOUT_MS = process.env.INFERENCE_TIMEOUT_MS
   ? parseInt(process.env.INFERENCE_TIMEOUT_MS, 10)
   : 15000;
@@ -101,23 +161,32 @@ function runPythonInferenceWithLimit(script, options) {
   return new Promise((resolve, reject) => {
     let timer = null;
     let pyshell = null;
+    let childPid = null;
 
     try {
       pyshell = new PythonShell(script, options);
+      childPid = pyshell.childProcess ? pyshell.childProcess.pid : null;
     } catch (instError) {
-      activeInferences--;
+      activeInferences = Math.max(0, activeInferences - 1);
       return reject(instError);
     }
 
     timer = setTimeout(() => {
       killed = true;
-      try {
-        pyshell.kill("SIGKILL");
-      } catch {}
-      activeInferences--;
+      activeInferences = Math.max(0, activeInferences - 1);
+      if (pyshell) {
+        try {
+          if (pyshell.childProcess) {
+            pyshell.childProcess.kill("SIGKILL");
+          } else {
+            pyshell.kill("SIGKILL");
+          }
+        } catch (kErr) {}
+      }
       const timeoutError = new Error(`Inference execution timed out after ${INFERENCE_TIMEOUT_MS}ms`);
       timeoutError.statusCode = 504;
       timeoutError.code = "INFERENCE_TIMEOUT";
+      timeoutError.childPid = childPid;
       reject(timeoutError);
     }, INFERENCE_TIMEOUT_MS);
 
@@ -129,7 +198,7 @@ function runPythonInferenceWithLimit(script, options) {
     pyshell.on("error", (err) => {
       if (!killed) {
         clearTimeout(timer);
-        activeInferences--;
+        activeInferences = Math.max(0, activeInferences - 1);
         reject(err);
       }
     });
@@ -137,12 +206,16 @@ function runPythonInferenceWithLimit(script, options) {
     pyshell.on("close", () => {
       if (!killed) {
         clearTimeout(timer);
-        activeInferences--;
+        activeInferences = Math.max(0, activeInferences - 1);
         resolve(output);
       }
     });
   });
 }
+
+app.runPythonInferenceWithLimit = runPythonInferenceWithLimit;
+app.getActiveInferences = () => activeInferences;
+app.MAX_CONCURRENT_INFERENCES = MAX_CONCURRENT_INFERENCES;
 
 // Serve browser applications (Next.js is primary, legacy kept for compatibility)
 app.get(["/", "/index.html", "/login.html", "/signup.html", "/dashboard.html"], (req, res, next) => {

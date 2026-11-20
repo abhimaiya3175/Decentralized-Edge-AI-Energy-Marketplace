@@ -36,6 +36,9 @@ exports.signup = async (req, res) => {
     }
 
     // Check if user already exists (case-insensitive normalized)
+    // Note: User enumeration on signup is mitigated, not eliminated. The ACCOUNT_EXISTS
+    // code and 400 response status still distinguish existing emails from other errors,
+    // and DB lookup timing differences remain before password hashing.
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ 
@@ -86,13 +89,13 @@ exports.login = async (req, res) => {
     // Find user (case-insensitive normalized)
     const user = await User.findOne({ where: { email } });
 
-    // Timing-safe comparison to prevent user enumeration
+    // Constant-time hash comparison to mitigate user enumeration on login
     const dummyHash = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
     const hashToCompare = user ? user.password : dummyHash;
     const match = await bcrypt.compare(password, hashToCompare);
 
     if (!user || !match) {
-      // Unified generic error for bad email or bad password (prevents user enumeration)
+      // Unified generic error for bad email or bad password (mitigates user enumeration)
       return res.status(401).json({ 
         msg: "Invalid email or password",
         code: "INVALID_CREDENTIALS" 

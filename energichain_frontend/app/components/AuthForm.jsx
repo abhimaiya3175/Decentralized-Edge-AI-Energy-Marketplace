@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
 
+const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=]).{8,}$/;
+
 export default function AuthForm({ mode }) {
   const router = useRouter();
   const { login } = useAuth();
@@ -23,6 +25,12 @@ export default function AuthForm({ mode }) {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
+      if (isSignup && !PASSWORD_POLICY_REGEX.test(password)) {
+        throw new Error(
+          "Password must be at least 8 characters and include uppercase, lowercase, a digit, and a special character"
+        );
+      }
+
       const payload = isSignup
         ? { name: name.trim(), email: normalizedEmail, password }
         : { email: normalizedEmail, password };
@@ -149,18 +157,23 @@ export default function AuthForm({ mode }) {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-medium text-[#9FA6B2]">Password</label>
                 {isSignup && (
-                  <span className="text-[10px] text-[#6A7380] font-mono">Min 6 characters</span>
+                  <span className="text-[10px] text-[#6A7380] font-mono">Min 8 characters</span>
                 )}
               </div>
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={isSignup ? 8 : 1}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-[#121416] border border-[#2B2E33] text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#0376C9] transition"
               />
+              {isSignup && (
+                <p className="text-[11px] text-[#9FA6B2] mt-1.5">
+                  Must be at least 8 characters and include uppercase, lowercase, a digit, and a special character.
+                </p>
+              )}
             </div>
 
             <button

@@ -70,7 +70,7 @@ exports.createBooking = async (req, res) => {
       where: { email: String(providerEmail).trim().toLowerCase() },
     });
 
-    // Generic error to prevent user enumeration
+    // Generic error to mitigate user enumeration (returns PROVIDER_UNAVAILABLE)
     if (!provider) {
       return res.status(400).json({
         msg: "Booking request cannot be processed: the specified provider is not available.",

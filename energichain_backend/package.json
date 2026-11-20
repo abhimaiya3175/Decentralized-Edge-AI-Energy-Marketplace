@@ -8,6 +8,7 @@
     "test:booking": "node scripts/verify-booking-workflow.js",
     "test:auth-wallet": "node scripts/verify-auth-wallet.js",
     "test:smoke": "node scripts/verify-api-smoke.js",
+    "test:security": "node scripts/verify-security-hardening.js",
     "db:clear-users": "node scripts/clear-users.js",
     "train:consumption": "python model_train/train_energy_consumption.py",
     "test:consumption": "python -m unittest model_train/test_energy_consumption.py -v",

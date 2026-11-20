@@ -213,8 +213,8 @@
 
                     <div>
                         <label class="block text-xs font-medium text-[var(--text-primary)] mb-1.5" for="password">Password</label>
-                        <input type="password" id="password" name="password" required autocomplete="new-password" class="auth-input" placeholder="••••••••••••">
-                        <p class="text-[11px] text-[var(--text-muted)] mt-1">Use at least 6 characters with a mix of letters and numbers.</p>
+                        <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" placeholder="••••••••••••">
+                        <p class="text-[11px] text-[var(--text-muted)] mt-1">Must be at least 8 characters with uppercase, lowercase, a digit, and a special character.</p>
                     </div>
 
                     <div class="pt-1">
@@ -280,9 +280,10 @@
                     return;
                 }
 
-                if (password.length < 6) {
-                    setSignupState("Your password must have at least 6 characters.", "error");
-                    alert("Password must be at least 6 characters.");
+                const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=]).{8,}$/;
+                if (!PASSWORD_POLICY_REGEX.test(password)) {
+                    setSignupState("Password must be at least 8 characters and include uppercase, lowercase, a digit, and a special character.", "error");
+                    alert("Password must be at least 8 characters and include uppercase, lowercase, a digit, and a special character.");
                     return;
                 }
 
@@ -300,15 +301,16 @@
                     });
                     let result = await response.json().catch(() => ({}));
 
-                    // A local user can use this form once to link their
-                    // existing browser account to the backend account.
-                    if (!response.ok && result.msg === "User already exists") {
-                        response = await fetch("/auth/login", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ email, password })
-                        });
-                        result = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        setSignupState(result.msg || "Registration failed.", "error");
+                        if (result.code === "ACCOUNT_EXISTS" || result.msg === "User already exists") {
+                            response = await fetch("/auth/login", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ email, password })
+                            });
+                            result = await response.json().catch(() => ({}));
+                        }
                     }
                     if (response.ok && result.token) backendSession = result;
                 } catch (error) {
