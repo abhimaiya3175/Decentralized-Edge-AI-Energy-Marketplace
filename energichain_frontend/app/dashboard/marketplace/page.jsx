@@ -116,7 +116,9 @@ export default function MarketplacePage() {
       const priceWei = ethers.parseEther(offerPrice.toString());
       setTxMessage("Please confirm transaction in MetaMask...");
 
-      const tx = await contract.createOffer(userHash, priceWei);
+      // Support legacy active Sepolia contract while providing forward-compatible escrow calls
+      const createFn = contract["createOffer(bytes32,uint256)"] || contract.createOffer;
+      const tx = await createFn(userHash, priceWei);
       setTxMessage(`Transaction submitted: ${tx.hash.slice(0, 10)}... Waiting for block confirmation...`);
       await tx.wait(1);
 
