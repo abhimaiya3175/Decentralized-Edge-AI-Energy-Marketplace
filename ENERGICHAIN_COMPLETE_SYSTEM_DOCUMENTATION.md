@@ -1,7 +1,7 @@
 # EnergyChain — Complete Functional, Technical & System Architecture Documentation
 
 **Document Version:** 2.0.0  
-**Repository Source:** Decentralized Edge AI Energy Marketplace  
+**Repository Source:** Decentralized Edge AI Energy Marketplace (P2P Energy Marketplace with Centralized ML Forecasting)  
 **Audited & Verified:** November 19, 2026  
 **Primary Target File:** `ENERGICHAIN_COMPLETE_SYSTEM_DOCUMENTATION.md`
 
@@ -12,8 +12,8 @@
 **EnergyChain** is a hybrid decentralized peer-to-peer (P2P) renewable energy trading platform and microgrid settlement system. The platform combines:
 1. **Decentralized Escrow & On-Chain Settlement:** Built on Ethereum Sepolia testnet utilizing Solidity smart contracts (`EnergyOffer.sol`) to guarantee atomic, broker-free payment distribution directly between buyer and seller wallets.
 2. **PostgreSQL Relational Storage & Identity Layer:** Backed by Sequelize ORM to store prosumer profiles, enforce permanent immutable MetaMask wallet bindings, manage off-chain pre-booking agreements, and power an authenticated participant messaging sub-system.
-3. **Edge AI & Predictive Telemetry:** A dual-track machine learning pipeline comprising physical solar estimation, simulated wind/battery telemetry, and a trained scikit-learn Energy Consumption prediction model (`LinearRegression`, `model_train/energy_consumption_model.pkl`) trained on chronological load profiles.
-4. **Multi-Tier Frontend Architecture:** Comprising both a production-ready, dark-mode static web application (`energichain_backend/public/`), an Express-bundled React SPA (`energichain_backend/client/`), and a Next.js 14 App Router frontend (`energichain_frontend/`).
+3. **Centralized ML Forecasting & Predictive Telemetry:** A dual-track server-side machine learning pipeline comprising physical solar estimation, simulated wind/battery telemetry, and a trained scikit-learn Energy Consumption prediction model (`LinearRegression`, `model_train/energy_consumption_model.pkl`) executing as server-side Python subprocesses.
+4. **Multi-Tier Frontend Architecture:** Comprising a functional, dark-mode static web application (`energichain_backend/public/`), an Express-bundled React SPA (`energichain_backend/client/`), and a Next.js 14 App Router frontend (`energichain_frontend/`).
 
 ```mermaid
 flowchart TB

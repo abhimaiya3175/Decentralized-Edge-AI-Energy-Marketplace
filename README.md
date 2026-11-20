@@ -1,6 +1,8 @@
-# EnergyChain — Decentralized Edge AI Energy Marketplace
+# EnergyChain — Decentralized Energy Marketplace with Centralized ML Forecasting
 
-EnergyChain is a production-grade, decentralized peer-to-peer renewable energy marketplace integrating Next.js 14 App Router, Node.js/Express 5, PostgreSQL, Ethereum Sepolia smart contracts, and scikit-learn machine learning forecasting.
+EnergyChain is a decentralized peer-to-peer renewable energy marketplace integrating a Next.js 14 App Router frontend, Node.js/Express 5 API server, PostgreSQL database, Ethereum Sepolia smart contracts, and centralized scikit-learn machine learning forecasting.
+
+Machine learning models execute as server-side Python subprocesses (managed with timeout protection and concurrency limits) to assist with solar yield estimation and facility load forecasting, rather than running at the edge. Smart contract trading uses an escrow state machine (Open, Locked, Delivered, Refunded, Cancelled) on local Hardhat, while the active Sepolia testnet deployment maintains the legacy contract until an authorized redeployment is approved.
 
 The single source of truth for the user interface is the Next.js frontend (`energichain_frontend/`), designed with an Obsidian & Precision dark theme. The Express backend (`energichain_backend/`) powers JWT authentication, EIP-191 cryptographic wallet binding, forward pre-booking agreements, participant messaging, and ML inference pipelines.
 

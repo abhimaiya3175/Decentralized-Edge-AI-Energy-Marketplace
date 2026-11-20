@@ -78,7 +78,7 @@ export default function Home() {
             </h1>
 
             <p className="text-base sm:text-lg text-[#9FA6B2] max-w-2xl leading-relaxed">
-              EnergyChain bridges physical microgrid telemetry, edge AI load forecasting, and bilateral forward delivery agreements with atomic on-chain settlement on Ethereum.
+              EnergyChain bridges physical microgrid telemetry, centralized ML load forecasting (server-side Python subprocesses), and bilateral forward delivery agreements with on-chain settlement on Ethereum.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
