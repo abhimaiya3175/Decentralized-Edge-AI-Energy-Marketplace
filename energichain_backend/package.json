@@ -13,8 +13,8 @@
     "train:solar": "python model_train/train_solar_reproducible.py",
     "train:consumption": "python model_train/train_energy_consumption.py",
     "test:consumption": "python -m unittest model_train/test_energy_consumption.py -v",
-    "dev:react": "vite --config client/vite.config.js",
-    "build:react": "vite build --config client/vite.config.js"
+    "dev:react": "vite --config ../legacy/client/vite.config.js",
+    "build:react": "vite build --config ../legacy/client/vite.config.js"
   },
   "keywords": [],
   "author": "",

@@ -13,7 +13,11 @@ const bookingRoutes = require("./routes/bookingRoutes");
 
 const app = express();
 const publicPath = path.join(__dirname, "..", "public");
-const reactBuildPath = path.join(publicPath, "app");
+const legacyPath = path.resolve(__dirname, "..", "..", "legacy");
+const legacyPublicPath = path.join(legacyPath, "public");
+const reactBuildPath = fs.existsSync(path.join(legacyPublicPath, "app"))
+  ? path.join(legacyPublicPath, "app")
+  : path.join(publicPath, "app");
 
 // Trust reverse proxy (e.g. Next.js rewrite or nginx) to populate req.ip from X-Forwarded-For
 app.set("trust proxy", 1);
@@ -219,12 +223,29 @@ app.MAX_CONCURRENT_INFERENCES = MAX_CONCURRENT_INFERENCES;
 
 // Serve browser applications (Next.js is primary, legacy kept for compatibility)
 app.get(["/", "/index.html", "/login.html", "/signup.html", "/dashboard.html"], (req, res, next) => {
-  res.sendFile(path.join(reactBuildPath, "index.html"), (error) => {
+  const targetIndex = path.join(reactBuildPath, "index.html");
+  if (fs.existsSync(targetIndex)) {
+    return res.sendFile(targetIndex, (error) => {
+      if (error) next(error);
+    });
+  }
+  const directHtml = path.join(legacyPublicPath, req.path === "/" ? "index.html" : req.path.replace(/^\//, ""));
+  if (fs.existsSync(directHtml)) {
+    return res.sendFile(directHtml);
+  }
+  res.sendFile(targetIndex, (error) => {
     if (error) next(error);
   });
 });
-app.get("/legacy/dashboard", (req, res) => res.sendFile(path.join(publicPath, "dashboard.html")));
+app.get("/legacy/dashboard", (req, res) => {
+  const legacyDash = path.join(legacyPublicPath, "dashboard.html");
+  if (fs.existsSync(legacyDash)) {
+    return res.sendFile(legacyDash);
+  }
+  return res.sendFile(path.join(publicPath, "dashboard.html"));
+});
 app.use(express.static(publicPath));
+app.use("/legacy", express.static(legacyPublicPath));
 app.use(
   "/vendor/chart.js",
   express.static(path.join(__dirname, "..", "node_modules", "chart.js", "dist"))
