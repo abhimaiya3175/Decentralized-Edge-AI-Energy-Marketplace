@@ -15,6 +15,9 @@ const app = express();
 const publicPath = path.join(__dirname, "..", "public");
 const reactBuildPath = path.join(publicPath, "app");
 
+// Trust reverse proxy (e.g. Next.js rewrite or nginx) to populate req.ip from X-Forwarded-For
+app.set("trust proxy", 1);
+
 // 1. Helmet Security Headers with explicit, minimal Content-Security-Policy
 app.use(
   helmet({
@@ -26,10 +29,7 @@ app.use(
           // 'unsafe-inline' is required for static legacy HTML pages (index.html, login.html,
           // signup.html, dashboard.html) containing inline <script> blocks.
           "'unsafe-inline'",
-          // 'unsafe-eval' is required by Tailwind CSS Play CDN (cdn.tailwindcss.com) for in-browser JIT compiling
-          "'unsafe-eval'",
           "https://cdn.tailwindcss.com",
-          "https://unpkg.com",
         ],
         styleSrc: [
           "'self'",
@@ -228,6 +228,10 @@ app.use(express.static(publicPath));
 app.use(
   "/vendor/chart.js",
   express.static(path.join(__dirname, "..", "node_modules", "chart.js", "dist"))
+);
+app.use(
+  "/vendor/ethers",
+  express.static(path.join(__dirname, "..", "node_modules", "ethers", "dist"))
 );
 app.use("/app", express.static(reactBuildPath));
 

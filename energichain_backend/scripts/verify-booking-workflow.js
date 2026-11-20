@@ -1,3 +1,8 @@
+if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith("_test")) {
+  console.error(`REFUSING TO RUN: DB_NAME must be set to a dedicated test database ending with '_test'. Received: '${process.env.DB_NAME || ""}'`);
+  process.exit(1);
+}
+
 const { sequelize } = require("../src/models");
 const app = require("../src/app");
 

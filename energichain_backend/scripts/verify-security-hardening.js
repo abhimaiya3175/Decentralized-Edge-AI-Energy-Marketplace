@@ -1,3 +1,8 @@
+if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith("_test")) {
+  console.error(`REFUSING TO RUN: DB_NAME must be set to a dedicated test database ending with '_test'. Received: '${process.env.DB_NAME || ""}'`);
+  process.exit(1);
+}
+
 const http = require("http");
 const path = require("path");
 const bcrypt = require("bcrypt");
@@ -73,11 +78,13 @@ async function main() {
       const hasTailwind = csp.includes("https://cdn.tailwindcss.com");
       const hasUnsafeInline = csp.includes("'unsafe-inline'");
       const hasWebsocket = csp.includes("ws:") && csp.includes("wss:");
+      const hasNoUnpkg = !csp.includes("unpkg.com");
+      const hasNoUnsafeEval = !csp.includes("'unsafe-eval'");
 
-      if (!hasSelf || !hasTailwind || !hasUnsafeInline || !hasWebsocket) {
+      if (!hasSelf || !hasTailwind || !hasUnsafeInline || !hasWebsocket || !hasNoUnpkg || !hasNoUnsafeEval) {
         throw new Error(`CSP directives incomplete on ${page}: ${csp}`);
       }
-      console.log(`CSP header on ${page} => PASS (Tailwind, inline, WS, self permitted)`);
+      console.log(`CSP header on ${page} => PASS (Tailwind, inline, WS allowed; unpkg & unsafe-eval removed)`);
     }
 
     // ------------------------------------------------------------------------
@@ -145,25 +152,61 @@ async function main() {
       throw new Error(`Legacy user login failed: status ${resLegacyLogin.status}, ${JSON.stringify(resLegacyLogin.data)}`);
     }
 
+    // 3c. Timing check: dummy bcrypt comparison runs when user is not found
+    const tStartNotFound = Date.now();
+    await runRequest("/auth/login", {
+      method: "POST",
+      body: { email: `nonexistent-${Date.now()}@energychain.test`, password: "AnyPassword123!" },
+    });
+    const durationNotFound = Date.now() - tStartNotFound;
+
+    const tStartFound = Date.now();
+    await runRequest("/auth/login", {
+      method: "POST",
+      body: { email: legacyEmail, password: "WrongPassword123!" },
+    });
+    const durationFound = Date.now() - tStartFound;
+
+    console.log(`Bcrypt Timing Check => User not found: ${durationNotFound}ms, User found wrong pw: ${durationFound}ms`);
+    if (durationNotFound < 25 || durationFound < 25) {
+      throw new Error("Bcrypt comparison appears to have been bypassed (took < 25ms)");
+    }
+    console.log("Dummy Bcrypt Constant-Time Check => PASS (Both executed full bcrypt comparison)");
+
     // ------------------------------------------------------------------------
-    // TEST 4: Auth Rate Limiting (Exhausting IP quota)
+    // TEST 4: Auth Rate Limiting & Trust Proxy Forwarded IP Isolation
     // ------------------------------------------------------------------------
-    console.log("\n--- TEST 4: Rate Limiting Verification ---");
-    // AUTH_LOGIN_RATE_LIMIT_MAX is set to 3. Firing 4 rapid requests to /auth/login.
-    let rateLimited = false;
+    console.log("\n--- TEST 4: Rate Limiting & Proxy IP Bucket Isolation ---");
+    // Client IP A sends requests and hits limit
+    const clientIpA = "198.51.100.1";
+    const clientIpB = "198.51.100.2";
+    let ipARateLimited = false;
     for (let i = 1; i <= 4; i++) {
       const res = await runRequest("/auth/login", {
         method: "POST",
-        body: { email: `ratelimit-${i}@example.com`, password: "AnyPassword123!" },
+        headers: { "X-Forwarded-For": clientIpA },
+        body: { email: `ratelimit-a-${i}@example.com`, password: "AnyPassword123!" },
       });
       if (res.status === 429 && res.data?.code === "AUTH_RATE_LIMITED") {
-        rateLimited = true;
-        console.log(`Rate Limiting (Triggered 429 on rapid request ${i} with limit=3) => PASS (429 AUTH_RATE_LIMITED)`);
+        ipARateLimited = true;
+        console.log(`Forwarded Client IP A (${clientIpA}) rate-limited on request ${i} => PASS (429)`);
         break;
       }
     }
-    if (!rateLimited) {
-      throw new Error("Rate limiting failed to trigger 429");
+    if (!ipARateLimited) {
+      throw new Error("Client IP A was not rate-limited");
+    }
+
+    // Client IP B sends request through the same proxy: must NOT be rate-limited
+    const resIpB = await runRequest("/auth/login", {
+      method: "POST",
+      headers: { "X-Forwarded-For": clientIpB },
+      body: { email: "client-b@example.com", password: "AnyPassword123!" },
+    });
+    if (resIpB.status === 401 && resIpB.data?.code === "INVALID_CREDENTIALS") {
+      console.log(`Forwarded Client IP B (${clientIpB}) fresh bucket not blocked => PASS (401 instead of 429)`);
+    } else {
+      throw new Error(`Client IP B unexpectedly blocked or wrong status: ${resIpB.status}`);
     }
 
     // ------------------------------------------------------------------------
