@@ -11,6 +11,18 @@ const bookingIncludes = [
   { model: User, as: "provider", attributes: userAttributes },
 ];
 
+function isValidDecimal(val, maxDecimals = 6) {
+  if (typeof val !== "number" && typeof val !== "string") return false;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num <= 0) return false;
+  const str = val.toString().trim();
+  if (str.includes("e") || str.includes("E")) return false;
+  const parts = str.split(".");
+  if (parts.length > 2) return false;
+  if (parts[1] && parts[1].length > maxDecimals) return false;
+  return true;
+}
+
 const serializeBooking = (booking, userId) => ({
   ...booking.toJSON(),
   viewerRole: booking.customerId === userId ? "customer" : "provider",
@@ -28,22 +40,50 @@ const findParticipantBooking = (id, userId) =>
 exports.createBooking = async (req, res) => {
   try {
     const { providerEmail, energyUnits, scheduledFor, pricePerUnit } = req.body;
+
+    if (!isValidDecimal(energyUnits, 6)) {
+      return res.status(400).json({
+        msg: "Energy quantity must be a positive finite number with at most 6 decimal places.",
+        code: "INVALID_ENERGY_UNITS",
+      });
+    }
+
+    if (!isValidDecimal(pricePerUnit, 6)) {
+      return res.status(400).json({
+        msg: "Price per unit must be a positive finite number with at most 6 decimal places.",
+        code: "INVALID_PRICE_PER_UNIT",
+      });
+    }
+
     const units = Number(energyUnits);
     const unitPrice = Number(pricePerUnit);
     const scheduledDate = new Date(scheduledFor);
 
-    if (!providerEmail || !Number.isFinite(units) || units <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
-      return res.status(400).json({ msg: "Provider email, energy quantity, and a valid price are required." });
-    }
-    if (Number.isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
-      return res.status(400).json({ msg: "The reservation time must be in the future." });
+    if (!providerEmail || Number.isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+      return res.status(400).json({
+        msg: "Provider email and a valid future reservation time are required.",
+        code: "INVALID_SCHEDULE_TIME",
+      });
     }
 
     const provider = await User.findOne({
       where: { email: String(providerEmail).trim().toLowerCase() },
     });
-    if (!provider) return res.status(404).json({ msg: "No provider was found for that email address." });
-    if (provider.id === req.user.id) return res.status(400).json({ msg: "You cannot create a booking with yourself." });
+
+    // Generic error to prevent user enumeration
+    if (!provider) {
+      return res.status(400).json({
+        msg: "Booking request cannot be processed: the specified provider is not available.",
+        code: "PROVIDER_UNAVAILABLE",
+      });
+    }
+
+    if (provider.id === req.user.id) {
+      return res.status(400).json({
+        msg: "You cannot create a booking with yourself.",
+        code: "SELF_BOOKING_PROHIBITED",
+      });
+    }
 
     const booking = await Booking.create({
       customerId: req.user.id,
