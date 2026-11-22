@@ -1,14 +1,20 @@
+if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith("_test")) {
+  console.error(`REFUSING TO RUN: DB_NAME must be set to a dedicated test database ending with '_test'. Received: '${process.env.DB_NAME || ""}'`);
+  process.exit(1);
+}
+
 const http = require("http");
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const app = require("../src/app");
+const { sequelize, User } = require("../src/models");
 
 async function main() {
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(5000, resolve));
   console.log("Smoke test server running on port 5000");
 
-  const results = [];
+  let smokeUserId = null;
 
   const runRequest = async (name, path, options = {}) => {
     return new Promise((resolve) => {
@@ -69,9 +75,48 @@ async function main() {
       throw new Error(`SMOKE 3 FAILED: ${JSON.stringify(resMe)}`);
     }
 
-    // 4. Energy Consumption ML Prediction
+    // 3a. /api/energy-consumption/predict without token -> 401 TOKEN_MISSING
+    const resMLNoAuth = await runRequest("consumption_ml_no_auth", "/api/energy-consumption/predict", {
+      method: "POST",
+      body: { temperature: 25 },
+    });
+    if (resMLNoAuth.status === 401 && resMLNoAuth.data.code === "TOKEN_MISSING") {
+      console.log("SMOKE 3a: Unauthenticated /api/energy-consumption/predict => PASS (401 TOKEN_MISSING)");
+    } else {
+      throw new Error(`SMOKE 3a FAILED: ${JSON.stringify(resMLNoAuth)}`);
+    }
+
+    // 3b. /predict without token -> 401 TOKEN_MISSING
+    const resSolarNoAuth = await runRequest("solar_ml_no_auth", "/predict", {
+      method: "POST",
+      body: { features: [500, 25, 3.5, 40] },
+    });
+    if (resSolarNoAuth.status === 401 && resSolarNoAuth.data.code === "TOKEN_MISSING") {
+      console.log("SMOKE 3b: Unauthenticated /predict => PASS (401 TOKEN_MISSING)");
+    } else {
+      throw new Error(`SMOKE 3b FAILED: ${JSON.stringify(resSolarNoAuth)}`);
+    }
+
+    // 3c. Obtain JWT token for authenticated ML tests
+    const smokeEmail = `smoke-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
+    const signupRes = await runRequest("smoke_signup", "/auth/signup", {
+      method: "POST",
+      body: {
+        name: "Smoke Test User",
+        email: smokeEmail,
+        password: "SmokeTestPassword!42",
+      },
+    });
+    if (signupRes.status !== 201 || !signupRes.data.token) {
+      throw new Error(`Smoke user creation failed: ${JSON.stringify(signupRes)}`);
+    }
+    const token = signupRes.data.token;
+    smokeUserId = signupRes.data.user.id;
+
+    // 4. Authenticated Energy Consumption ML Prediction
     const resML = await runRequest("consumption_ml", "/api/energy-consumption/predict", {
       method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
       body: {
         temperature: 28.5,
         humidity: 55,
@@ -86,26 +131,34 @@ async function main() {
       },
     });
     if (resML.status === 200 && resML.data.success && resML.data.prediction) {
-      console.log(`SMOKE 4: Consumption ML Prediction => PASS (${resML.data.prediction.energyConsumption} ${resML.data.prediction.unit})`);
+      console.log(`SMOKE 4: Authenticated Consumption ML Prediction => PASS (${resML.data.prediction.energyConsumption} ${resML.data.prediction.unit})`);
     } else {
       throw new Error(`SMOKE 4 FAILED: ${JSON.stringify(resML)}`);
     }
 
-    // 5. Solar ML Endpoint (missing artifact returns structured 503)
+    // 5. Authenticated Solar ML Endpoint (missing artifact returns structured 503)
     const resSolar = await runRequest("solar_ml", "/predict", {
       method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
       body: {
         features: [500, 25, 3.5, 40],
       },
     });
     if (resSolar.status === 503 && resSolar.data.code === "MODEL_UNAVAILABLE") {
-      console.log("SMOKE 5: Solar ML Offline Graceful 503 => PASS (MODEL_UNAVAILABLE)");
+      console.log("SMOKE 5: Authenticated Solar ML Offline Graceful 503 => PASS (MODEL_UNAVAILABLE)");
     } else {
       throw new Error(`SMOKE 5 FAILED: ${JSON.stringify(resSolar)}`);
     }
 
     console.log("ALL SMOKE TESTS PASSED SUCCESSFULLY");
   } finally {
+    if (smokeUserId) {
+      try {
+        await User.destroy({ where: { id: smokeUserId } });
+      } catch (cleanupErr) {
+        console.error("Smoke user cleanup error:", cleanupErr.message);
+      }
+    }
     server.close();
   }
 }

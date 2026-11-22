@@ -18,9 +18,19 @@ The earliest 80% of rows form the training set and the latest 20% form the valid
 | --- | ---: | ---: | ---: | ---: |
 | LinearRegression | 4.1222 | 25.0182 | 5.0018 | 0.5917 |
 | RandomForestRegressor | 4.1974 | 26.5281 | 5.1505 | 0.5671 |
-| GradientBoostingRegressor | 4.0979 | 25.2387 | 5.0238 | 0.5881 |
+| GradientBoostingRegressor (Default) | 4.0979 | 25.2387 | 5.0238 | 0.5881 |
+| GradientBoostingRegressor | 3.9698 | 23.4119 | 4.8386 | 0.6180 |
+| HistGradientBoostingRegressor | 4.0163 | 23.8951 | 4.8883 | 0.6101 |
 
-Selected model: **LinearRegression** (lowest chronological validation RMSE).
+Selected model: **GradientBoostingRegressor** (lowest chronological validation RMSE).
+
+### Optimal Hyperparameters for GradientBoostingRegressor:
+
+- `n_estimators`: `150`
+- `learning_rate`: `0.05`
+- `max_depth`: `3`
+- `subsample`: `0.75`
+- `min_samples_leaf`: `4`
 
 ## Features
 

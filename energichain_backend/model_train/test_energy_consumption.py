@@ -30,7 +30,7 @@ class EnergyConsumptionModelTests(unittest.TestCase):
         result = inference.main(VALID_PAYLOAD)
         self.assertTrue(result["success"])
         self.assertGreaterEqual(result["prediction"]["energyConsumption"], 0)
-        self.assertEqual(result["model"], "LinearRegression")
+        self.assertEqual(result["model"], "GradientBoostingRegressor")
 
     def test_missing_field_is_validation_error(self):
         payload = dict(VALID_PAYLOAD)

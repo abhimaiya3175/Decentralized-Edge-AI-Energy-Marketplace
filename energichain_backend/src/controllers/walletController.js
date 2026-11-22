@@ -4,8 +4,28 @@ const { WalletBinding } = require("../models");
 
 const WALLET_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
-// In-memory challenge-response nonce cache: userId -> { nonce, message, expiresAt }
+/**
+ * In-memory challenge-response nonce cache: userId -> { nonce, message, expiresAt }
+ *
+ * ARCHITECTURAL CONSTRAINT:
+ * This nonce store is currently held in-process memory. It operates correctly for single-node
+ * deployments (the current runtime model). For multi-process, horizontal clustering, or
+ * serverless edge deployments, this store MUST be backed by an external distributed store
+ * (e.g., PostgreSQL with row-level TTL, or Redis) to share nonce state across workers.
+ */
 const activeNonces = new Map();
+
+// Periodic cleanup of expired nonces (every 5 minutes)
+const NONCE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+const nonceCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [userId, record] of activeNonces.entries()) {
+    if (record.expiresAt < now) {
+      activeNonces.delete(userId);
+    }
+  }
+}, NONCE_CLEANUP_INTERVAL_MS);
+if (nonceCleanupTimer.unref) nonceCleanupTimer.unref();
 
 exports.getWalletBinding = async (req, res) => {
   try {

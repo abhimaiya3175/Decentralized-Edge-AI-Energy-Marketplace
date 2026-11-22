@@ -3,7 +3,7 @@ import ClientProviders from "./components/ClientProviders";
 
 export const metadata = {
   title: "EnergyChain — Decentralized P2P Renewable Energy Marketplace",
-  description: "Secure, on-chain renewable energy trading, smart microgrid pre-booking, and edge AI load prediction.",
+  description: "Secure, on-chain renewable energy trading, smart microgrid pre-booking, and centralized ML load forecasting.",
 };
 
 export default function RootLayout({ children }) {

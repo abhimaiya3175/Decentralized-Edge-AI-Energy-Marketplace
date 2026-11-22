@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const { User, WalletBinding } = require("../models");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Server-side password policy: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character
+const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=]).{8,}$/;
 
 const createToken = (user) => jwt.sign(
   { id: user.id },
@@ -26,14 +28,23 @@ exports.signup = async (req, res) => {
     if (!email || !EMAIL_REGEX.test(email)) {
       return res.status(400).json({ msg: "A valid email address is required" });
     }
-    if (!password || typeof password !== "string" || password.length < 6) {
-      return res.status(400).json({ msg: "Password must be at least 6 characters" });
+    if (!password || typeof password !== "string" || !PASSWORD_POLICY_REGEX.test(password)) {
+      return res.status(400).json({ 
+        msg: "Password must be at least 8 characters and include uppercase, lowercase, a digit, and a special character",
+        code: "PASSWORD_POLICY_VIOLATION"
+      });
     }
 
     // Check if user already exists (case-insensitive normalized)
+    // Note: User enumeration on signup is mitigated, not eliminated. The ACCOUNT_EXISTS
+    // code and 400 response status still distinguish existing emails from other errors,
+    // and DB lookup timing differences remain before password hashing.
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ msg: "User already exists" });
+      return res.status(400).json({ 
+        msg: "Registration failed. An account with this email cannot be created.",
+        code: "ACCOUNT_EXISTS"
+      });
     }
 
     // Hash password
@@ -77,14 +88,18 @@ exports.login = async (req, res) => {
 
     // Find user (case-insensitive normalized)
     const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ msg: "User not found" });
-    }
 
-    // Check password
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(400).json({ msg: "Incorrect password" });
+    // Constant-time hash comparison to mitigate user enumeration on login
+    const dummyHash = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
+    const hashToCompare = user ? user.password : dummyHash;
+    const match = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !match) {
+      // Unified generic error for bad email or bad password (mitigates user enumeration)
+      return res.status(401).json({ 
+        msg: "Invalid email or password",
+        code: "INVALID_CREDENTIALS" 
+      });
     }
 
     // Generate token

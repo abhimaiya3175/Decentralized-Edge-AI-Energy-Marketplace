@@ -1,6 +1,6 @@
 {
-  "model_version": "1.0.0",
-  "trained_at_utc": "2026-11-18T16:50:33.358532+00:00",
+  "model_version": "1.1.0",
+  "trained_at_utc": "2026-11-22T09:17:25.898447+00:00",
   "dataset_path": "data\\Energy_consumption.csv",
   "dataset_rows": 1000,
   "duplicates_removed": 0,
@@ -32,7 +32,14 @@
     "DayOfWeek",
     "Holiday"
   ],
-  "selected_algorithm": "LinearRegression",
+  "selected_algorithm": "GradientBoostingRegressor",
+  "best_hyperparameters": {
+    "n_estimators": 150,
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "subsample": 0.75,
+    "min_samples_leaf": 4
+  },
   "model_comparison": {
     "LinearRegression": {
       "mae": 4.122185731849177,
@@ -46,11 +53,23 @@
       "rmse": 5.1505405750536974,
       "r2": 0.5671094142964457
     },
-    "GradientBoostingRegressor": {
+    "GradientBoostingRegressor (Default)": {
       "mae": 4.09790942625973,
       "mse": 25.238705552616167,
       "rmse": 5.023813845338635,
       "r2": 0.588149504878732
+    },
+    "GradientBoostingRegressor": {
+      "mae": 3.9698158850812475,
+      "mse": 23.411946155415098,
+      "rmse": 4.8385892732711975,
+      "r2": 0.6179589481814494
+    },
+    "HistGradientBoostingRegressor": {
+      "mae": 4.016303971766998,
+      "mse": 23.895102122783946,
+      "rmse": 4.8882616667670264,
+      "r2": 0.6100747076855644
     }
   },
   "training_period": {
