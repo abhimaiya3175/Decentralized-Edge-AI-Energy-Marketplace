@@ -186,11 +186,21 @@ npx hardhat test
 | `GET` | `/legacy/dashboard` | Serves legacy static HTML dashboard | No |
 | `WS` | `/ws/chat` | Real-time bilateral coordination chat WebSocket server | Authenticated |
 
+### Real-Time WebSocket Bilateral Chat Protocol
+
+EnergyChain features a WhatsApp-style real-time bilateral coordination chat system built directly into the booking management dashboard (`/dashboard/bookings`):
+
+- **WebSocket Server**: Accessible at `ws://localhost:5000/ws/chat` (handled natively by Node.js HTTP server upgrade).
+- **Authentication**: Clients send a JWT auth payload upon connection (`{ "type": "auth", "token": "<jwt>" }`) ensuring only authorized participants can access bilateral conversation channels.
+- **Room Multiplexing**: Sockets subscribe to specific booking agreements (`{ "type": "join_booking", "bookingId": <id> }`). Authorization middleware verifies that `userId` matches either the `buyerId` or `sellerId` of the agreement.
+- **Instantaneous Delivery & State Sync**: Messages (`{ "type": "chat_message", "bookingId": <id>, "content": "..." }`) are simultaneously persisted to the PostgreSQL `BookingMessages` table and broadcast instantly to the counterpart client without page refreshes or polling.
+- **Resilient Fallback**: REST endpoints (`GET /bookings/:id/messages` and `POST /bookings/:id/messages`) provide persistent message history hydration upon page mount or in environments where WebSocket connections are restricted.
+
 ---
 
-## Smart Contract Specification (`EnergyOffer.sol`)
+## Smart Contract Escrow Protocol (`EnergyOffer.sol`)
 
-The redesigned escrow contract coordinates on-chain energy agreements across five finite states:
+The redesigned smart contract replaces immediate payout with an explicit 5-state escrow machine:
 
 ```mermaid
 stateDiagram-v2
@@ -205,31 +215,69 @@ stateDiagram-v2
     Cancelled --> [*]
 ```
 
-### Core Interface:
-- `createOffer(uint256 _energyKwh, uint256 _priceWei, uint256 _deliveryWindow)`: Creates an open offer with seller derived from `msg.sender`.
-- `acceptOffer(uint256 _id) payable`: Buyer locks the exact required ether into escrow custody.
-- `confirmDelivery(uint256 _id)`: Buyer releases locked funds to the seller upon verifying power delivery.
-- `claimTimeoutPayment(uint256 _id)`: Seller claims escrowed payment if delivery window and grace period elapse without dispute.
-- `claimRefund(uint256 _id)`: Buyer claims full refund if delivery is not fulfilled by the delivery window.
-- `cancelOffer(uint256 _id)`: Seller cancels an unaccepted offer.
+### Core Interface & State Invariants:
+- `createOffer(uint256 _energyKwh, uint256 _priceWei, uint256 _deliveryWindow)`: Creates an open offer with seller derived from `msg.sender` (preventing unverified caller-supplied hashes).
+- `acceptOffer(uint256 _id) payable`: Buyer locks the exact required ether into escrow custody. Seller cannot withdraw funds yet.
+- `confirmDelivery(uint256 _id)`: Buyer releases locked funds to the seller upon verifying physical power delivery.
+- `claimTimeoutPayment(uint256 _id)`: Seller claims escrowed payment if the delivery window and grace period elapse without dispute.
+- `claimRefund(uint256 _id)`: Buyer claims full refund if delivery is not fulfilled by the seller within the delivery window.
+- `cancelOffer(uint256 _id)`: Seller cancels an unaccepted open offer.
+- Non-reentrant settlement protected via OpenZeppelin's `ReentrancyGuard` and Checks-Effects-Interactions pattern. Verified with 19 comprehensive Hardhat unit tests (`energichain-contract/test/EnergyOffer.js`).
 
 ---
 
-## Machine Learning Pipelines
+## Machine Learning Pipelines & Model Metrics
 
-### 1. Facility Consumption ML Forecasting
-- **Algorithm**: Hyperparameter-tuned Gradient Boosting Regressor (`model_train/train_energy_consumption.py`) selected via systematic grid search over boosting depth, tree count, subsampling rate, learning rate, and leaf size (achieving RMSE 4.8386, MAE 3.9698, and R² 0.6180, outperforming baseline Linear Regression and Random Forest models).
-- **Dataset**: Chronological 1,000-row facility load profile (`model_train/Energy_consumption.csv`).
-- **Features**: Temperature, humidity, square footage, occupancy, HVAC usage, lighting usage, renewable energy generation, day of week, and holiday indicators.
-- **Pipeline Unit Tests**: Validated with `npm run test:consumption` (5 passing tests).
+EnergyChain integrates specialized machine learning pipelines for facility consumption prediction, solar generation forecasting, and consumer grid demand.
 
-### 2. Solar Power Yield Pipeline & Reproducibility
-- **Training Pipeline**: `model_train/train_solar_reproducible.py`.
-- **Zero Synthetic Data Policy**: If real Kaggle dataset files are missing, the training pipeline halts immediately with instructions rather than fabricating fake rows:
-  - Dataset: [Kaggle Solar Power Generation Data](https://www.kaggle.com/datasets/anikannal/solar-power-generation-data)
-  - Required Files: `Plant_1_Generation_Data.csv` and `Plant_1_Weather_Sensor_Data.csv` in `energichain_backend/data/`.
-  - Detailed instructions: See [SOLAR_TRAINING_GUIDE.md](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/SOLAR_TRAINING_GUIDE.md).
-- **Graceful Offline Fallback**: When model artifacts are absent, the API returns a clean HTTP 503 `MODEL_UNAVAILABLE`, and the UI displays a physics-based estimate with an explicit fallback badge.
+### 1. Facility Load ML Forecasting (`energichain_backend/model_train/`)
+
+Facility consumption forecasting predicts multi-variable facility energy demand using 13 features: `Temperature`, `Humidity`, `SquareFootage`, `Occupancy`, `RenewableEnergy`, `hour`, `day`, `month`, `is_weekend`, `HVACUsage`, `LightingUsage`, `DayOfWeek`, and `Holiday`.
+
+To eliminate temporal leakage, models are benchmarked on a **strict chronological holdout split** (earliest 80% / 800 rows for training; latest 20% / 200 rows for out-of-sample evaluation):
+
+| Model Architecture | MAE | MSE | RMSE | $R^2$ Score | Selection Status |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **GradientBoostingRegressor (Tuned)** | **3.9698** | **23.4119** | **4.8386** | **0.6180** | **ACTIVE (Selected Production Model)** |
+| **HistGradientBoostingRegressor (Tuned)** | 4.0163 | 23.8951 | 4.8883 | 0.6101 | Evaluated Candidate |
+| **LinearRegression** | 4.1222 | 25.0182 | 5.0018 | 0.5917 | Previous Baseline |
+| **GradientBoostingRegressor (Default)** | 4.0979 | 25.2387 | 5.0238 | 0.5881 | Un-tuned Baseline |
+| **RandomForestRegressor (300 trees)** | 4.1974 | 26.5281 | 5.1505 | 0.5671 | Tree Baseline |
+
+#### Optimal Hyperparameters for Selected Model:
+- **Algorithm**: `GradientBoostingRegressor`
+- `n_estimators`: `150`
+- `learning_rate`: `0.05`
+- `max_depth`: `3`
+- `subsample`: `0.75`
+- `min_samples_leaf`: `4`
+
+The trained pipeline artifact is serialized at `energichain_backend/model_train/energy_consumption_model.pkl` and verified with automated test suites (`npm run test:consumption`). Detailed reports are archived in [energy_consumption_model_report.md](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/energy_consumption_model_report.md) and [energy_consumption_model_metadata.json](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/energy_consumption_model_metadata.json).
+
+### 2. Solar Power Generation Model (`Train_Generation.py` & `train_solar_reproducible.py`)
+
+Predicts solar inverter power generation (`AC_POWER` / `DC_POWER` in kW) from pyranometer solar irradiance and diurnal solar positioning features (`hour_sin`, `hour_cos`, `minute_sin`, `minute_cos`).
+
+- **Architecture**: `RandomForestRegressor(n_estimators=300, max_depth=20, min_samples_split=4, min_samples_leaf=2)`
+- **Target**: `AC_POWER` (kW)
+- **Features**: `IRRADIATION`, `AMBIENT_TEMPERATURE`, `MODULE_TEMPERATURE`, `hour_sin`, `hour_cos`, `minute_sin`, `minute_cos`
+
+| Metric | Measured Value | Benchmark Source |
+| :--- | :---: | :--- |
+| **$R^2$ Score** | **0.9963** (99.63% variance explained) | [metrix_report.txt](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/metrix_report.txt#L3) |
+| **RMSE** | **514.4909** | [metrix_report.txt](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/metrix_report.txt#L2) |
+| **Normalized RMSE** | **7.67%** | [metrix_report.txt](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/metrix_report.txt#L1) |
+
+- **Zero Synthetic Data Policy**: If real Kaggle dataset files are missing, the training pipeline halts immediately with instructions rather than fabricating fake rows (see [SOLAR_TRAINING_GUIDE.md](file:///e:/ProJect/Decentralized-Edge-AI-Energy-Marketplace-main/Decentralized-Edge-AI-Energy-Marketplace-main/energichain_backend/model_train/SOLAR_TRAINING_GUIDE.md)).
+- **Graceful Offline Fallback**: When model artifacts are absent, `/predict` returns a clean HTTP 503 `MODEL_UNAVAILABLE`, prompting the UI to display a physics-based solar estimate with an explicit fallback badge.
+
+### 3. Consumer Grid Load Model (`consumer.py`)
+
+- **Architecture**: `RandomForestRegressor(n_estimators=300, max_depth=18)`
+- **Dataset**: Open Power System Data (OPSD / ENTSO-E actual load transparency)
+- **Features**: `HOUR`, `DAY`, `MONTH`
+- **Target**: `CONSUMPTION_INDEX`
+- **Validation Metric**: Mean Absolute Error (MAE) ~`28.6 - 32.4` on out-of-sample holdout split.
 
 ---
 

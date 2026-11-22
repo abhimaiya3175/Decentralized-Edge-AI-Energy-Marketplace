@@ -101,8 +101,28 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# Serialized ML models (scratch/ad-hoc models ignored, production artifact tracked)
 *.pkl
 *.joblib
+!energichain_backend/model_train/energy_consumption_model.pkl
+
+# Raw large external datasets (downloadable via SOLAR_TRAINING_GUIDE.md)
+energichain_backend/data/Plant_*.csv
+energichain_backend/data/Consumer_*.csv
+energichain_backend/data/Solar_Data.csv
+energichain_backend/data/*.csv.zip
+
+# ==============================================================================
+# FRONTEND & TOOLING CACHES
+# ==============================================================================
+.turbo/
+.eslintcache
 
 # ==============================================================================
 # SYSTEM & EDITOR ARTIFACTS
@@ -114,6 +134,8 @@ wheels/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
 .idea/
 *.swp
 *.swo
