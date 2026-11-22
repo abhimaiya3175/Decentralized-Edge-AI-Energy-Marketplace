@@ -88,7 +88,7 @@ EnergyChain is a decentralized peer-to-peer (P2P) renewable energy marketplace c
 | `/dashboard/bookings` | **Pre-Bookings & Chat** | Forward bilateral scheduling (`pending`, `confirmed`, `completed`, `cancelled`) and WhatsApp-style WebSocket chat (`ws://localhost:5000/ws/chat`). |
 | `/dashboard/solar` | **Solar Power Prediction** | Physics-based solar yield estimation with automatic fallback indicator when the server-side model is offline. |
 | `/dashboard/wind` | **Wind Telemetry** | Simulated wind turbine telemetry with wind speed controls, dynamic power output, and status meters. |
-| `/dashboard/consumption` | **Consumption ML** | Facility load forecasting powered by a trained scikit-learn Random Forest model with input range validation. |
+| `/dashboard/consumption` | **Consumption ML** | Facility load forecasting powered by a hyperparameter-tuned scikit-learn Gradient Boosting model with input range validation. |
 | `/dashboard/history` | **Settlement & Audit Trail** | Indexed Sepolia on-chain event history (`OfferAccepted`) and read-only legacy snapshot viewer (`0xe026E90518516bDEb48c9F585c16a3FFBf21fDaE`). |
 | `/legacy/dashboard` | **Legacy HTML View** | Backward-compatible view serving original static dashboard modules via Express. |
 
@@ -218,7 +218,7 @@ stateDiagram-v2
 ## Machine Learning Pipelines
 
 ### 1. Facility Consumption ML Forecasting
-- **Algorithm**: Supervised Random Forest regressor (`model_train/train_energy_consumption.py`).
+- **Algorithm**: Hyperparameter-tuned Gradient Boosting Regressor (`model_train/train_energy_consumption.py`) selected via systematic grid search over boosting depth, tree count, subsampling rate, learning rate, and leaf size (achieving RMSE 4.8386, MAE 3.9698, and R² 0.6180, outperforming baseline Linear Regression and Random Forest models).
 - **Dataset**: Chronological 1,000-row facility load profile (`model_train/Energy_consumption.csv`).
 - **Features**: Temperature, humidity, square footage, occupancy, HVAC usage, lighting usage, renewable energy generation, day of week, and holiday indicators.
 - **Pipeline Unit Tests**: Validated with `npm run test:consumption` (5 passing tests).

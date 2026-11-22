@@ -103,7 +103,8 @@ Machine learning models are executed centrally as server-side Python subprocesse
 - **Concurrency Semaphore**: A concurrency counter limits active inferences to a maximum of 5 concurrent runs, returning HTTP 503 `INFERENCE_BUSY` under heavy load to prevent CPU starvation.
 
 ### 4.2 Facility Load Forecasting (Consumption Model)
-- Supervised Random Forest regressor trained on 1,000 chronological observations (`data/Energy_consumption.csv`).
+- Supervised Gradient Boosting regressor with systematic hyperparameter tuning trained on 1,000 chronological observations (`data/Energy_consumption.csv`).
+- Selected algorithm: `GradientBoostingRegressor` with optimal hyperparameters (`n_estimators: 150`, `learning_rate: 0.05`, `max_depth: 3`, `subsample: 0.75`, `min_samples_leaf: 4`), achieving lower validation error (RMSE 4.8386 vs 5.0018 for linear baseline) and higher variance explained (R² 0.6180 vs 0.5917).
 - Predicts facility energy consumption based on temperature, humidity, square footage, occupancy, HVAC usage, and lighting.
 - Out-of-bounds input features trigger telemetry warnings without corrupting inferences.
 
